@@ -16,7 +16,13 @@ function modal(title,html,form='',drawer=false){
  hydrateImages(overlay);
  (overlay.querySelector('[autofocus]')||overlay.querySelector('.field')||overlay.querySelector('button'))?.focus({preventScroll:true});
 }
-function modalClose(restore=true){overlay.replaceChildren();document.body.style.overflow='';if(restore&&dialogReturn?.isConnected)dialogReturn.focus();dialogReturn=null}
+function modalClose(restore=true){
+ overlay.replaceChildren();
+ main.querySelector('.board-card.is-open')?.classList.remove('is-open');
+ document.body.style.overflow='';
+ if(restore&&dialogReturn?.isConnected)dialogReturn.focus();
+ dialogReturn=null;
+}
 const formEnd=(label='Salvar',secondary='')=>'<div class="dialog-actions">'+secondary+button('Cancelar','close',{cls:'btn ghost'})+'<button class="btn primary" type="submit">'+esc(label)+'</button></div>';
 function render(){
  if(services.signal.aborted)return;
@@ -59,9 +65,11 @@ function board(k,rows){
 function boardCard(k,x){
  const open=' tabindex="0" role="button" data-act="open|'+k+'|'+esc(x.id)+'"';
  const data=' data-card="'+esc(x.id)+'" data-board="'+k+'"';
- const content=(x.cover?localImage(x.cover,'','board-cover'):'')+
+ const cover=x.cover?localImage(x.cover,'','board-cover'):'';
+ if(k==='content')return '<div class="board-card content-card"'+open+data+'>'+cover+'<strong>'+esc(x.name)+'</strong></div>';
+ const content=cover+
   statusTag(x.kind&&x.formatDetail?x.kind+' · '+x.formatDetail:x.kind||x.stage)+'<strong>'+esc(x.name)+'</strong><p>'+esc(k==='crm'?x.client:x.note||x.client||'')+'</p>'+
-  '<div class="card-foot"><span>'+shortDate(k==='content'||editorialBoard(k)?publishedOn(x)||x.date:x.date)+'</span><span>'+esc(k==='crm'?brl(x.amount):k==='social'?'v'+(x.version||1):'')+'</span></div>';
+  '<div class="card-foot"><span>'+shortDate(editorialBoard(k)?publishedOn(x)||x.date:x.date)+'</span><span>'+esc(k==='crm'?brl(x.amount):k==='social'?'v'+(x.version||1):'')+'</span></div>';
  if(k!=='crm')return '<div class="board-card"'+open+data+'>'+content+'</div>';
  return '<article class="board-card crm-card"'+data+'><div class="board-card-open"'+open+'>'+content+'</div>'+
   whatsappButton(x.contact,x.name,true)+'</article>';

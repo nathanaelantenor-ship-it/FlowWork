@@ -67,10 +67,12 @@ html[data-flow-theme=light] .nav-sort-name .icon{color:#555e70}
 .fw-follow-item a{text-decoration:none}
 .fw-deficit{color:#ffc0c8;font-weight:650;font-size:14px}
 .fw-forecast-bar{height:62px;display:flex;align-items:flex-end;gap:3px;margin:12px 0}
-.fw-forecast-bar i{height:var(--height);flex:1;border-radius:4px 4px 0 0;background:#99ae6a}
+.fw-forecast-bar i{height:var(--height);flex:1;border-radius:4px 4px 0 0;background:var(--accent)}
 .fw-forecast-bar .negative{background:#ed8d97}
 .fw-forecast-days details{border-top:1px solid #777f8845;padding:7px 0;font-size:14px}
 .fw-forecast-days summary{cursor:pointer;display:grid;grid-template-columns:4rem 1fr auto;align-items:center;gap:8px}
+.fw-forecast-days .fw-forecast-next>summary{background:var(--accent);color:var(--ink);padding:8px;border-radius:9px}
+.fw-forecast-days .fw-forecast-next>summary:focus-visible{outline:2px solid var(--ink);outline-offset:-4px}
 .fw-forecast-days details>div{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 0 0 7px}
 .fw-forecast-days details>div small{white-space:nowrap}
 .account-backup{margin:12px 0}
@@ -94,3 +96,26 @@ html[data-flow-theme=light] .nav-sort-name .icon{color:#555e70}
 }
 
 @media(max-width:730px){.fw-chat-panel{width:390px;max-width:calc(100% - 20px)}.scrim{width:100%;max-width:100%;min-width:0}.scrim .dialog{max-width:100%}}
+
+.content-card .board-cover{object-fit:contain}
+#main :is(.crm-card,.content-card):is(:hover,:active,:focus-visible,:has(:focus-visible),.is-open),
+#main[data-module=content] .cal-cell .event:is(:hover,:active,:focus-visible){
+ background:var(--accent);
+ border-color:var(--accent);
+ color:#f6f5f2;
+}
+/* Keep off-white lettering distinct from the bright yellow behind it. */
+#main :is(.crm-card,.content-card):is(:hover,:active,:focus-visible,:has(:focus-visible),.is-open) :is(strong,p,.card-foot),
+#main[data-module=content] .cal-cell .event:is(:hover,:active,:focus-visible){
+ color:#f6f5f2;
+ paint-order:stroke fill;
+ -webkit-text-stroke:2.2px var(--ink);
+}
+#main .crm-card:is(:hover,:active,:has(:focus-visible),.is-open) :is(.tag,.whatsapp-button){
+ background:#fff;
+ border-color:#fff;
+ color:var(--ink);
+}
+#main .crm-card :is(.board-card-open,.whatsapp-button):focus-visible{
+ outline-color:var(--ink);
+}

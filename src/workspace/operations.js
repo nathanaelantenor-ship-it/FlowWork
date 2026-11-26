@@ -85,7 +85,7 @@ function cashForecastPanel(){
   '<p class="small">Base: saldo realizado do mês até hoje ('+brl(initial/100)+'). Lançamentos vencidos entram na projeção de hoje.</p>'+
   (negative?'<p class="fw-deficit">Primeiro saldo diário negativo em '+shortDate(negative.date)+' · '+brl(negative.balance/100)+'</p>':'')+
   '<div class="fw-forecast-bar" aria-hidden="true">'+timeline.map(x=>'<i class="'+(x.balance<0?'negative':'')+'" style="--height:'+Math.max(3,100*Math.abs(x.balance)/max)+'%" title="'+shortDate(x.date)+' · '+brl(x.balance/100)+'"></i>').join('')+'</div>'+
-  '<div class="fw-forecast-days">'+important.map(x=>'<details><summary><b>'+shortDate(x.date)+'</b><span>+'+brl(x.receivable)+' · −'+brl(x.payable)+'</span><strong>'+brl(x.balance/100)+'</strong></summary>'+
+  '<div class="fw-forecast-days">'+important.map((x,i)=>'<details'+(i===0?' class="fw-forecast-next"':'')+'><summary><b>'+shortDate(x.date)+'</b><span>+'+brl(x.receivable)+' · −'+brl(x.payable)+'</span><strong>'+brl(x.balance/100)+'</strong></summary>'+
    x.entries.map(entry=>'<div>'+button(entry.name,'money|'+entry.id,{cls:'text-button'})+'<small>'+shortDate(entry.date)+' · '+(entry.type==='out'?'−':'+')+brl(entry.amount)+'</small></div>').join('')+'</details>').join('')+'</div>','fw-cash-forecast');
 }
 

@@ -111,7 +111,11 @@ listen(document,'click',ev=>{
  if(trigger.closest('[data-card]')&&Date.now()<suppressBoardClick)return;
  const [key,...args]=trigger.dataset.act.split('|');
  if(['reference-preview','reference-remove'].includes(key)){actionHandlers[key](trigger);return}
- try{const consume=actionHandlers[key]?.(...args);consume?.catch?.(()=>toast('Não foi possível concluir esta ação.'))}catch(error){console.error(error);toast('Não foi possível concluir esta ação.')}
+ try{
+  const consume=actionHandlers[key]?.(...args);
+  consume?.catch?.(()=>toast('Não foi possível concluir esta ação.'));
+  if(key==='open'&&overlay.firstChild)trigger.closest('.crm-card,.content-card')?.classList.add('is-open');
+ }catch(error){console.error(error);toast('Não foi possível concluir esta ação.')}
 });
 listen(document,'keydown',ev=>{
  if(ev.key==='Escape'){if(overlay.firstChild)modalClose();else if(assistant.open)assistantToggle();else if(navDrag)finishNavDrag();else if(navEditing)toggleNavEditing();else if(state.mobile)actionHandlers.mobile();return}

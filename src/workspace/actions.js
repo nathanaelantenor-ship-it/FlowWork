@@ -112,9 +112,15 @@ listen(document,'click',ev=>{
  const [key,...args]=trigger.dataset.act.split('|');
  if(['reference-preview','reference-remove'].includes(key)){actionHandlers[key](trigger);return}
  try{
+  const openingFrom=overlay.firstChild?null:trigger.closest(
+   '.board-card,.client-card,.folder-card,.tile,.map-node,.fw-goal-card,.fw-task,.fw-event,.fw-follow-item,.rank-item,.svc-row,.table tbody tr,.attachment-row,.cal-cell .event'
+  );
   const consume=actionHandlers[key]?.(...args);
   consume?.catch?.(()=>toast('Não foi possível concluir esta ação.'));
-  if(key==='open'&&overlay.firstChild)trigger.closest('.crm-card,.content-card')?.classList.add('is-open');
+  if(openingFrom&&overlay.firstChild&&main.contains(openingFrom)){
+   dialogSource=openingFrom;
+   dialogSource.classList.add('is-open');
+  }
  }catch(error){console.error(error);toast('Não foi possível concluir esta ação.')}
 });
 listen(document,'keydown',ev=>{

@@ -2,7 +2,7 @@ const sidebar=document.getElementById('sidebar');
 const topbar=document.getElementById('topbar');
 const main=document.getElementById('main');
 const overlay=document.getElementById('overlay');
-let toastTimer, dialogReturn=null;
+let toastTimer, dialogReturn=null, dialogSource=null;
 function persist(){return !services.signal.aborted&&services.sync.enqueue(db)}
 function toast(text){const el=document.getElementById('toast');el.innerHTML='<div class="toast">'+esc(text)+'</div>';clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.replaceChildren(),3500)}
 function go(view){
@@ -18,7 +18,8 @@ function modal(title,html,form='',drawer=false){
 }
 function modalClose(restore=true){
  overlay.replaceChildren();
- main.querySelector('.board-card.is-open')?.classList.remove('is-open');
+ dialogSource?.classList.remove('is-open');
+ dialogSource=null;
  document.body.style.overflow='';
  if(restore&&dialogReturn?.isConnected)dialogReturn.focus();
  dialogReturn=null;

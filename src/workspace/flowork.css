@@ -26,8 +26,7 @@
 .crumb{font-size:12px;color:#b1b5be}
 .crumb b{font-weight:650}
 .top-actions{gap:7px}
-.search-btn{min-width:149px;border-color:#42454f;background:#22252c!important}
-.search-btn:hover{background:#313423!important}
+.search-btn{min-width:149px;border-color:#42454f;background:#22252c}
 .top-actions>.icon-btn{background:#22252c;border-color:#42454f}
 .top-actions>.icon-btn:hover{background:var(--accent);color:var(--ink)}
 .btn.primary{min-height:38px}
@@ -93,8 +92,6 @@ main{max-width:1500px;min-height:calc(100vh - 66px);padding:34px 32px 42px}
 .lane-title{font-size:12px}
 .lane-title .count-pill{padding:3px 6px;margin-left:1px}
 .board-card{background:#272b35;border-color:#414551;border-radius:13px;padding:10px}
-.board-card:hover,.board-card:focus-visible{background:#303323;border-color:#dce667}
-.board-card:hover strong{color:#f2ff8a}
 .board-card .tag{border-radius:999px}
 .board-card p{font-size:11px}
 .board-cover{display:block;width:100%;aspect-ratio:1.8;object-fit:cover;margin:0 0 9px;border-radius:8px}
@@ -226,13 +223,11 @@ main{max-width:1500px;min-height:calc(100vh - 66px);padding:34px 32px 42px}
 .client-card{display:grid;min-width:0;padding:12px;border:1px solid #444854;gap:13px;background:linear-gradient(145deg,color-mix(in srgb,var(--client-tone) 11%,#24262d),#20232a 76%);border-radius:20px;transition:transform .2s,border-color .2s}
 .client-card:hover{border-color:var(--accent);transform:translateY(-2px)}
 .client-identity{display:flex;align-items:center;gap:10px;text-align:left;border:0;background:none;padding:0;width:100%;min-width:0}
-.client-identity:hover strong{color:var(--accent)}
 .client-identity>span:nth-child(2){min-width:0;flex:1}
 .client-identity strong,.client-identity small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .client-identity strong{font-size:19px;font-weight:640;letter-spacing:-.052em}
 .client-identity small{font-size:12px;color:#babec9;margin-top:4px}
 .client-identity>.icon{padding:6px;border:1px solid #535864;border-radius:50%;width:29px;height:29px}
-.client-identity:hover>.icon{background:var(--accent);color:#292d17;border-color:var(--accent)}
 .client-avatar{width:47px;height:47px;font-size:15px;background:var(--avatar-tint,#e2e0d7);font-weight:700}
 .client-services{display:flex;gap:5px;flex-wrap:wrap}
 .client-services span{background:#323740;border:1px solid #464b55;border-radius:999px;color:#dbe0ec;padding:4px 6px;font-size:11px}

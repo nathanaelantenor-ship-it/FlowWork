@@ -97,25 +97,38 @@ html[data-flow-theme=light] .nav-sort-name .icon{color:#555e70}
 
 @media(max-width:730px){.fw-chat-panel{width:390px;max-width:calc(100% - 20px)}.scrim{width:100%;max-width:100%;min-width:0}.scrim .dialog{max-width:100%}}
 
-.content-card .board-cover{object-fit:contain}
-#main :is(.crm-card,.content-card):is(:hover,:active,:focus-visible,:has(:focus-visible),.is-open),
-#main[data-module=content] .cal-cell .event:is(:hover,:active,:focus-visible){
+/* Shared interaction colors for records and controls across modules. */
+#main :is(
+ .board-card,.client-card,.folder-card,.tile,.map-node,.fw-project-row,.fw-overview-project,
+ .fw-task,.fw-event,.fw-follow-item,.fw-goal-card,.rank-item,.svc-row,.event,.fw-day,
+ .fw-stat-strip button,.fw-receivable,.table tbody tr:has(button),.attachment-row:has(button)
+):is(:hover,:active,:focus-visible,:has(:focus-visible),.is-open,[aria-pressed=true]){
  background:var(--accent);
  border-color:var(--accent);
- color:#f6f5f2;
-}
-/* Keep off-white lettering distinct from the bright yellow behind it. */
-#main :is(.crm-card,.content-card):is(:hover,:active,:focus-visible,:has(:focus-visible),.is-open) :is(strong,p,.card-foot),
-#main[data-module=content] .cal-cell .event:is(:hover,:active,:focus-visible){
- color:#f6f5f2;
- paint-order:stroke fill;
- -webkit-text-stroke:2.2px var(--ink);
-}
-#main .crm-card:is(:hover,:active,:has(:focus-visible),.is-open) :is(.tag,.whatsapp-button){
- background:#fff;
- border-color:#fff;
  color:var(--ink);
+
+ &:focus-visible{outline-color:var(--ink)}
+ &.map-node{box-shadow:none}
+ & :is(strong,b,p,small,time,svg,.card-foot,.folder-open,.rank-index,.fw-flat,.text-button,.finance-amount,.inline,.small,td){
+  color:var(--ink);
+ }
+ & :is(.tag,.icon-btn,.btn,.check,.tile-icon,.client-services span,.fw-tag,.client-identity>svg,.fw-event time,.rank-index){
+  background:#fff;
+  border-color:#fff;
+  color:var(--ink);
+ }
+ & .client-card-foot{background:transparent;border-color:var(--ink)}
+ &.fw-project-row .meter{background:#20222830}
+ & :is(a,button,[tabindex]):focus-visible{outline-color:var(--ink)}
 }
-#main .crm-card :is(.board-card-open,.whatsapp-button):focus-visible{
- outline-color:var(--ink);
+
+#main .fw-forecast-days summary:is(:hover,:active,:focus-visible),
+#main .fw-forecast-days details[open]>summary,
+#workspace-root :is(.nav-btn,.profile,.btn,.icon-btn,.chip):not(:disabled,.danger):is(:hover,:active,:focus-visible,.active),
+#overlay :is(.btn,.icon-btn,.chip,.search-list button,.svc-choice):not(:disabled,.danger):is(:hover,:active,:focus-visible,.active),
+#overlay .format-scroll label:is(:hover,:has(:focus-visible),:has(:checked)){
+ background:var(--accent);
+ border-color:var(--accent);
+ color:var(--ink);
+ & :is(b,small,svg,.svc-choice-state,.nav-icon){color:var(--ink)}
 }

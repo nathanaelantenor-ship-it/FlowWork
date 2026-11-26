@@ -1,0 +1,8 @@
+node_modules/
+dist/
+src/workspace/generated.js
+.env
+.env.*
+!.env.example
+.vercel/
+.DS_Store

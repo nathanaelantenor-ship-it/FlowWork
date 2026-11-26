@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#121419">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Flowork — Área de trabalho</title>
+</head>
+<body>
+  <div id="access"></div>
+  <div class="frame" id="workspace-root" hidden>
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="workspace">
+      <header class="topbar" id="topbar"></header>
+      <main id="main" tabindex="-1"></main>
+    </div>
+  </div>
+  <div id="overlay"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <dialog id="legal-dialog" class="legal-dialog" aria-labelledby="legal-title"></dialog>
+  <dialog id="account-dialog" class="account-dialog" aria-labelledby="account-title"></dialog>
+  <noscript>Ative o JavaScript para acessar o Flowork.</noscript>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+.access-layout{min-height:100dvh;display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);background:#efeee8;color:#191b21}
+.auth-brand-panel{position:relative;isolation:isolate;overflow:hidden;display:flex;flex-direction:column;background:radial-gradient(ellipse at 70% 51%,#303440,#161923 50%,#121419 84%);min-height:100dvh;padding:clamp(28px,5vw,76px);color:#f4f4ed}
+.auth-brand{display:inline-flex;align-items:center;align-self:start;gap:11px;text-decoration:none;font-size:29px;font-weight:650;letter-spacing:-.062em}
+.auth-brand>span,.orbit-core{display:grid;place-items:center;background:#efff48;color:#222610;width:44px;height:44px;border-radius:13px}
+.auth-brand svg,.orbit-core svg{width:27px;height:27px}
+.auth-brand-copy{position:relative;z-index:2;margin:auto 0 9vh;pointer-events:none}
+.auth-brand-copy h1{font-size:clamp(37px,5.15vw,84px);font-weight:560;letter-spacing:-.08em;line-height:1.02;margin:0}
+.auth-brand-copy h1 span{color:#efff48}
+.auth-brand-copy p{font-size:clamp(13px,1.05vw,16px);color:#c0c5cf;margin:18px 0 0;line-height:1.45}
+.auth-orbit{position:absolute;z-index:-1;width:min(95%,625px);aspect-ratio:1;top:13%;left:44%;transform:translateX(-26%);filter:drop-shadow(0 16px 70px #22262f);pointer-events:none}
+.auth-ring{position:absolute;width:100%;height:51%;left:0;top:24.5%;border-radius:50%;border:1px solid #676b7b94;rotate:-43deg}
+.auth-ring.b{width:90%;left:5%;height:44%;top:28%;border-color:#7f867b99;rotate:-61deg}
+.auth-ring.c{width:88%;left:6%;height:51%;border-color:#efff4871;rotate:-25deg}
+.auth-ring.d{width:90%;left:5%;height:40%;top:30%;border-color:#8189a66c;rotate:18deg}
+.orbit-core{position:absolute;left:45%;top:45%;width:12%;height:12%;border-radius:28%;rotate:-8deg;box-shadow:0 0 70px #edff4352}
+.orbit-core svg{width:58%;height:58%}
+.orbit-node{position:absolute;width:11%;height:11%;padding:3%;border:1px solid #858fa3;border-radius:34%;color:#dce2ee;background:#3e46566e;backdrop-filter:blur(12px);box-shadow:0 9px 28px #0005}
+.orbit-node svg{width:100%;display:block}
+.orbit-node.one{left:20%;top:63%;rotate:-12deg}
+.orbit-node.two{left:62%;top:23%;rotate:11deg;color:#e9f47b}
+.orbit-node.three{left:26%;top:33%;rotate:15deg}
+.access-content{display:grid;align-items:center;justify-items:center;padding:42px clamp(24px,5.5vw,84px);min-width:0}
+.access-card{width:min(100%,404px);padding:13px 0 10px;animation:surface-in .25s ease-out both}
+@keyframes surface-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.access-card h2{font-size:clamp(31px,3.6vw,55px);font-weight:650;letter-spacing:-.073em;line-height:1.01;margin:0 0 11px}
+.access-description{font-size:15px;line-height:1.47;color:#53565b;margin:0 0 25px}
+.access-tabs{display:flex;gap:3px;background:#deddd6;border:1px solid #d5d4cb;border-radius:999px;padding:4px;margin:0 0 15px}
+.access-tabs button{flex:1;min-height:34px;border-radius:999px;background:none;color:#4c4e51;border:1px solid transparent;font-size:13px;font-weight:650}
+.access-tabs button[aria-pressed=true]{background:#252831;color:#fff;border-color:#252831}
+.access-tabs button:not([aria-pressed=true]):hover{background:#e9efaf;color:#212516}
+.google-button{display:flex;align-items:center;gap:10px;color:#24262a;background:#fbfaf6;border:1px solid #c9c9be;text-decoration:none;width:100%;min-height:47px;padding:8px 12px;border-radius:13px;font-size:14px;font-weight:650}
+.google-button:hover:not([disabled]){border-color:#6e792a;background:#f1f4d6}
+.google-button span{flex:1;text-align:center}
+.google-button .oauth-logo{width:21px;height:21px}
+.google-button svg:last-child{width:15px;height:15px;color:#53565a}
+.google-button:disabled,.access-submit:disabled{opacity:.65}
+.access-divider{display:flex;align-items:center;gap:10px;margin:13px 0;color:#686a6c;font-size:11px;font-weight:640}
+.access-divider::before,.access-divider::after{content:'';height:1px;flex:1;background:#d3d3cb}
+.access-form{display:grid;gap:12px}
+.access-field{display:grid;gap:5px;min-width:0;color:#2c2e31;font-size:13px;font-weight:620}
+.access-field :is(input,select){width:100%;min-height:43px;border:1px solid #c3c4ba;border-radius:11px;background:#fcfbf8;color:#1e2022;color-scheme:light;padding:9px 11px;font-size:15px;font-weight:400}
+.access-field input::placeholder{color:#666b70}
+.access-field :is(input,select):hover{border-color:#7c814d}
+.password-wrap{position:relative;display:block}
+.password-wrap input{padding-right:45px}
+.password-wrap button{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:33px;height:33px;border-radius:50%;display:grid;place-items:center;background:none;border:0;color:#52575d}
+.password-wrap button:hover{background:#e9edc8;color:#272c17}
+.password-wrap svg{width:19px;height:19px}
+.access-submit,.access-secondary,.access-exit{min-height:44px;border-radius:12px;padding:8px 13px;font-size:14px;font-weight:710;transition:background .18s,border .18s;color:#242616}
+.access-submit{width:100%;background:#efff48;border:1px solid #bac824;box-shadow:inset 0 1px 0 #fff389}
+.access-submit:hover:not([disabled]){background:#e2f447;border-color:#849314}
+.access-secondary{background:#f9f8f4;border:1px solid #c8c9bd}
+.access-secondary:hover:not([disabled]){background:#ecf1ac;border-color:#9ea641}
+.access-exit{background:#292d35;color:#f5f5ee;border:1px solid #292d35}
+.access-exit:hover:not([disabled]){background:#970e2f;border-color:#970e2f}
+.access-text{color:#323633;border:0;background:none;padding:4px 0;font-weight:650;text-decoration:underline;text-underline-offset:3px;font-size:13px}
+.access-text:hover,.access-foot a:hover,.legal-body a:hover{color:#5a6505}
+.access-card>button.access-text{margin-top:12px}
+.forgot-row{display:flex;justify-content:end;margin-top:-6px}
+.access-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:17px;color:#5b5e61;font-size:12px}
+.access-foot i{width:3px;height:3px;border-radius:50%;background:#7c7e73}
+.access-foot a,.policy-links a{font-weight:630;text-underline-offset:3px}
+.access-hint,.account-note{margin:-5px 0 0;color:#5c5e61;font-size:12px;line-height:1.4}
+.access-message{border:1px solid #d8ce83;background:#f6efbf;border-radius:10px;margin:0 0 13px;padding:8px 10px;font-size:12px;color:#413b20;line-height:1.4}
+.policy-links{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px;font-size:13px}
+.policy-links a{background:#f9f8f2;border:1px solid #cecfc4;border-radius:8px;padding:8px 10px}
+.access-check{display:flex;align-items:start;gap:7px;font-size:14px;line-height:1.45;cursor:pointer}
+.access-check input{width:16px;height:16px;accent-color:#596322;flex:none;margin:2px 0}
+.access-layout :focus-visible,:is(.legal-dialog,.account-dialog) :focus-visible{outline:2px solid #5c7010;outline-offset:2px}
+.auth-progress{width:48px;height:5px;background:#9eab32;border-radius:999px;animation:progress-in .65s ease-in-out infinite alternate;transform-origin:left}
+@keyframes progress-in{from{scale:.45 1}to{scale:1 1}}
+:where(.legal-dialog,.account-dialog){width:min(92vw,670px);max-height:88dvh;overflow:auto;border:1px solid #d7d5ca;border-radius:22px;background:#f2f0e9;color:#202229;padding:22px;color-scheme:light;box-shadow:0 24px 130px #0007}
+:where(.legal-dialog,.account-dialog)::backdrop{background:#111318b4;backdrop-filter:blur(6px)}
+.access-dialog-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;margin-bottom:14px}
+.access-dialog-head h2{font-size:29px;font-weight:650;letter-spacing:-.053em;margin:0}
+.access-dialog-head p{font-size:12px;color:#5b5e61;margin:5px 0 0}
+.access-close{width:35px;height:35px;display:grid;place-items:center;border-radius:50%;border:1px solid #c9c9be;background:#e6e5de;color:#202229}
+.access-close svg{width:17px;height:17px}
+.access-close:hover{background:#efff48}
+.legal-body{font-size:14px;line-height:1.62}
+.legal-body h3{font-size:16px;margin:19px 0 2px}
+.legal-body p,.legal-body ul{margin:5px 0 9px}
+.legal-body li+li{margin-top:7px}
+.account-dialog{max-width:585px}
+.account-email{margin:-8px 0 13px;color:#50525a}
+.account-sync{display:flex;justify-content:space-between;gap:8px;padding:10px;background:#e5e4da;border:1px solid #d6d6c8;border-radius:10px;font-size:13px;margin-bottom:8px}
+.account-sync [data-account-sync]{text-align:right}
+.account-actions,.account-foot{display:flex;gap:7px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+.account-actions .access-secondary{flex:1}
+.account-conflict{background:#f3e8b5;padding:8px;border-radius:10px;margin:10px 0;font-size:13px}
+.account-conflict p{margin:0 0 5px}
+.account-privacy{margin-top:17px}
+.account-privacy h3{font-size:16px;margin:0 0 7px}
+.account-request{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:7px}
+.account-note{margin:7px 0}
+.account-requests{list-style:none;padding:0;margin:7px 0;font-size:12px}
+.account-requests li{display:grid;gap:4px;border-top:1px solid #d5d4ce;padding:6px 0}
+.account-requests small{overflow-wrap:anywhere;color:#50535b}
+.account-foot{border-top:1px solid #d5d4ce;padding-top:10px;font-size:13px}
+.account-alert{font-size:13px;color:#5e2925;min-height:1em;margin:8px 0}
+.sync-pill{min-width:0;max-width:155px;font-size:11px;color:#c2c9d2;overflow:hidden;text-overflow:ellipsis}
+.sync-pill[data-level=error],.sync-pill[data-level=conflict]{border-color:#b9726f;color:#ffd0c8}
+.sync-pill[data-level=saved]{border-color:#5d6557;color:#d3dbb5}
+@media(max-width:760px){.access-layout{display:block;background:#efeee8}.auth-brand-panel{min-height:173px;padding:18px 24px}.auth-brand-copy{margin:19px 0 3px}.auth-brand-copy h1{font-size:35px}.auth-brand-copy h1 br{display:none}.auth-brand-copy p{margin-top:6px;font-size:12px}.auth-orbit{width:320px;left:auto;right:-105px;top:-74px}.auth-brand{font-size:22px}.auth-brand>span{width:32px;height:32px;border-radius:9px}.auth-brand>span svg{width:20px;height:20px}.access-content{padding:19px 24px 35px}.access-card{padding:13px 0}.access-card h2{font-size:38px}.access-description{margin-bottom:17px}.sync-pill{display:none}.account-actions,.account-foot{gap:5px}}
+@media(prefers-reduced-motion:reduce){.access-card,.auth-progress{animation:none}}

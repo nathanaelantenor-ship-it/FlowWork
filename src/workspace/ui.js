@@ -1,0 +1,187 @@
+const sidebar=document.getElementById('sidebar');
+const topbar=document.getElementById('topbar');
+const main=document.getElementById('main');
+const overlay=document.getElementById('overlay');
+let toastTimer, dialogReturn=null;
+function persist(){return !services.signal.aborted&&services.sync.enqueue(db)}
+function toast(text){const el=document.getElementById('toast');el.innerHTML='<div class="toast">'+esc(text)+'</div>';clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.replaceChildren(),3500)}
+function go(view){
+ if(!nav.some(x=>x[0]===view))return;
+ state.view=view;state.mobile=false;if(location.hash.slice(1)!==view)history.replaceState(null,'','#'+view);
+ modalClose(false);render();window.scrollTo(0,0);main.focus({preventScroll:true});
+}
+function modal(title,html,form='',drawer=false){
+ if(!overlay.firstChild){dialogReturn=document.activeElement;document.body.style.overflow='hidden'}
+ overlay.innerHTML='<div class="scrim"><section class="dialog'+(drawer?' drawer':'')+'" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="dialog-header"><h2 id="dialogTitle">'+esc(title)+'</h2>'+ib('x','Fechar','close')+'</div>'+(form?'<form data-form="'+esc(form)+'">'+html+'</form>':html)+'</section></div>';
+ hydrateImages(overlay);
+ (overlay.querySelector('[autofocus]')||overlay.querySelector('.field')||overlay.querySelector('button'))?.focus({preventScroll:true});
+}
+function modalClose(restore=true){overlay.replaceChildren();document.body.style.overflow='';if(restore&&dialogReturn?.isConnected)dialogReturn.focus();dialogReturn=null}
+const formEnd=(label='Salvar',secondary='')=>'<div class="dialog-actions">'+secondary+button('Cancelar','close',{cls:'btn ghost'})+'<button class="btn primary" type="submit">'+esc(label)+'</button></div>';
+function render(){
+ if(services.signal.aborted)return;
+ const navBlock=(name,items)=>'<div class="nav-group"><p class="nav-caption">'+name+'</p>'+items.map(([id,ic,n])=>'<button type="button" class="nav-btn'+(state.view===id?' active':'')+'" data-act="go|'+id+'" '+(state.view===id?'aria-current="page"':'')+'><span class="nav-icon">'+icon(ic)+'</span>'+n+'</button>').join('')+'</div>';
+ sidebar.classList.toggle('mobile-open',state.mobile);
+ sidebar.innerHTML='<button type="button" class="brand" data-act="go|home"><span class="brand-mark">'+icon('logo')+'</span><span><b>Flowork</b></span></button><nav aria-label="Módulos">'+navBlock('Operação',nav.slice(0,6))+navBlock('Organização',nav.slice(6))+'</nav><button type="button" class="profile" data-act="profile" title="Personalizar perfil">'+avatar({...db.profile,name:profileName()})+'<span><b>'+esc(profileName())+'</b><small>'+esc(profileMeta())+'</small></span>'+icon('more')+'</button>';
+ topbar.innerHTML='<div class="crumb">'+button('','mobile',{cls:'icon-btn mobile-toggle',ic:'menu',title:'Abrir menu'})+'<span>Área de trabalho</span>'+icon('chevron')+'<b>'+navName(state.view)+'</b></div><div class="top-actions"><button type="button" class="btn ghost search-btn" data-act="search" aria-label="Buscar">'+icon('search')+'<span>Buscar</span><kbd class="key">Ctrl K</kbd></button>'+'<button type="button" class="btn sync-pill" data-act="account" data-sync-state></button>'+ib('bell','Pendências','notices')+newBtn('Criar','create')+ib('users','Minha conta','account')+'</div>';
+ const views={home:renderHome,clients:renderClients,finance:renderFinance,files:renderDocs,maps:renderMaps};
+ main.innerHTML=wrap((views[state.view]||(()=>renderBoardPage(state.view)))());
+ services.refreshStatus();hydrateImages(main);hydrateImages(sidebar);
+ if(state.view==='maps'&&state.map){drawMapLinks();fillMapImages()}
+}
+function renderHome(){
+ const done=db.tasks.filter(x=>x.done).length;
+ const closed=db.crm.filter(x=>x.stage==='Fechado');
+ const sold=closed.filter(x=>(x.closedOn||x.date)?.slice(0,7)===today.slice(0,7)).reduce((sum,x)=>sum+Number(x.amount||0),0);
+ const stages=[['Em contato',['Em contato','Conversa iniciada']],['Reuniões',['Reunião marcada']],['Propostas',['Proposta enviada']],['Fechados',['Fechado']]];
+ const series=stages.map(([label,keys])=>[label,keys,db.crm.filter(x=>keys.includes(x.stage)).length]);
+ const max=Math.max(...series.map(x=>x[2]),1);
+ const pending=activeSocial().filter(x=>x.stage==='Aprovação').length;
+ const projects=db.idv.filter(x=>x.stage!=='Entrega').slice(0,2).map(x=>['idv',x]).concat(db.social.filter(x=>x.kind==='Planejamento'&&x.stage!=='Entregue').slice(0,1).map(x=>['social',x]));
+ const priority=db.tasks.slice(0,5).map(x=>'<div class="priority-row'+(x.done?' done':'')+'"><button type="button" aria-label="'+(x.done?'Reabrir':'Concluir')+' '+esc(x.name)+'" class="check'+(x.done?' done':'')+'" data-act="task|'+esc(x.id)+'">'+(x.done?icon('check'):'')+'</button><button class="detail" data-act="open|'+esc(x.ref?x.ref.join('|'):'task|'+x.id)+'"><strong>'+esc(x.name)+'</strong><small>'+esc(x.meta||'Tarefa')+'</small></button><span class="when'+(!x.done&&x===db.tasks.find(t=>!t.done)?' hot':'')+'">'+esc(x.time||'Hoje')+'</span></div>').join('');
+ const selectedDay=new Date(state.day+'T12:00:00Z').getUTCDay();
+ const monday=addDays(state.day,-(selectedDay+6)%7);
+ const week=['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map((name,i)=>[name,addDays(monday,i)]);
+ const weekLabel=shortDate(week[0][1])+' a '+shortDate(week[6][1]);
+ const events=db.events.filter(x=>x.day===state.day).sort((a,b)=>a.time.localeCompare(b.time));
+ return '<div class="hero"><div><div class="date-label">'+icon('calendar')+' '+esc(new Date(today+'T12:00:00Z').toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}))+'</div><h1>Seu dia, '+esc(profileName().split(/\s+/)[0])+'.</h1></div><div class="heading-actions">'+exportsBtn()+'</div></div>'+
+ '<div class="dash-grid">'+panel('<div class="panel-head"><h2>Prioridades de hoje <span class="count-pill">'+(db.tasks.length-done)+'</span></h2>'+ib('plus','Nova tarefa','new-task')+'</div>'+'<div class="priority-list">'+(priority||empty('Nenhuma tarefa para hoje.'))+'</div><div class="panel-foot"><span class="inline"><span class="meter"><i style="width:'+(done/Math.max(1,db.tasks.length)*100)+'%"></i></span>'+done+' de '+db.tasks.length+' concluídas</span><button data-act="all-tasks">Ver tarefas '+icon('chevron')+'</button></div>','paper')+
+ panel(panelTitle('Visão comercial',ib('external','Abrir Comercial','go|crm'))+'<div class="revenue-line"><strong class="big-money mono">'+brl(sold)+'</strong></div><p class="revenue-caption">Em contratos fechados no mês</p><div class="bars">'+series.map(([label,keys,count])=>'<button type="button" data-act="crm-filter|'+esc(keys.join(','))+'" title="'+count+' em '+esc(label)+'"><b>'+count+'</b><span class="bar-fill" style="height:'+(7+count/max*34)+'px"></span><span>'+esc(label)+'</span></button>').join('')+'</div>','commercial')+
+ panel(panelTitle('Projetos em andamento',ib('external','Abrir Identidade Visual','go|idv'))+'<div class="project-list">'+(projects.map(([k,p])=>'<button type="button" class="project-row" data-act="open|'+k+'|'+p.id+'"><span class="project-marker" style="--marker:'+cleanColor(p.color,'#415573')+'">'+esc(idFor(p.client||p.name))+localImage(findClient(p.client)?.photo,'')+'</span><span><span class="project-name">'+esc(p.client||p.name)+'</span><span class="project-sub">'+esc(k==='social'?'Mídias sociais · '+(p.cycle?monthName(p.cycle):'Em andamento'):p.stage)+'</span></span><span class="meter" aria-label="Progresso"><i style="width:'+progress(k,p)+'%"></i></span><span class="project-date">'+shortDate(p.date)+'</span>'+icon('chevron')+'</button>').join('')||empty('Nenhum projeto em andamento.'))+'</div>','paper project-panel')+
+ panel(panelTitle('Agenda','<span class="inline">'+ib('prev','Semana anterior','week|-7')+'<span class="small">'+weekLabel+'</span>'+ib('chevron','Próxima semana','week|7')+ib('plus','Novo compromisso','new-event')+'</span>')+'<div class="week">'+week.map(([label,date])=>'<button type="button" class="day'+(date===state.day?' active':'')+'" data-act="day|'+date+'" aria-label="'+label+', '+shortDate(date)+'" aria-pressed="'+(date===state.day)+'"><small>'+label+'</small>'+Number(date.slice(-2))+'</button>').join('')+'</div><div class="events">'+(events.map(e=>'<button type="button" class="event" data-act="open|'+esc(e.ref?e.ref.join('|'):'event|'+e.id)+'"><time>'+esc(e.time)+'</time><span class="line"></span>'+esc(e.name)+'</button>').join('')||empty('Sem compromissos neste dia.'))+'</div>')+'</div>'+
+ '<div class="data-strip">'+[['layers','Mídias Sociais',pending+' '+(pending===1?'peça':'peças')+' aguardando aprovação','social'],['map','Mapas Mentais',db.maps.length+' '+(db.maps.length===1?'mapa salvo':'mapas salvos'),'maps'],['wallet','Financeiro','Empresa e Pessoal','finance']].map(([ic,n,d,k])=>'<button type="button" data-act="go|'+k+'">'+icon(ic)+'<span><span class="label">'+n+'</span><small>'+d+'</small></span>'+icon('chevron')+'</button>').join('')+'</div>';
+}
+function progress(k,p){return Math.round(Math.min(1,asList(p.done).length/Math.max(1,(checklists[k]||[]).length))*100)}
+const activeSocial=()=>db.social.filter(x=>x.client===state.client&&x.cycle===state.cycle);
+const activeRows=k=>k==='social'?activeSocial():k==='crm'&&state.crmFilter?db.crm.filter(x=>state.crmFilter.split(',').includes(x.stage)):db[k];
+const rowButton=(title,k,id)=>button(title,'open|'+k+'|'+id,{cls:'text-button'});
+function renderBoardPage(k){
+ const config=definitions[k], view=state.boardView[k];
+ const available=k==='social'?['Kanban','Calendário','Entrega']:k==='content'?['Kanban','Calendário','Insights']:k==='study'?['Trilhas','Kanban']:['Kanban','Lista'];
+ const filters=k==='social'?'<label>Cliente <select class="field" data-change="client">'+[...new Set(db.social.map(x=>x.client).concat(state.client))].sort().map(x=>option(x,x,state.client)).join('')+'</select></label><label>Ciclo <input class="field" type="month" aria-label="Ciclo de mídias sociais" data-change="cycle" value="'+esc(state.cycle)+'"></label>'+button('Novo ciclo','new-cycle',{ic:'repeat'})+button('Visão do cliente','client-view',{ic:'eye',cls:'btn ghost'}):k==='crm'&&state.crmFilter?button('Limpar filtro','crm-filter|',{ic:'x'}):k==='content'&&view==='Calendário'?'<label>Mês <input class="field" type="month" data-change="contentMonth" value="'+esc(state.contentMonth)+'"></label>':'';
+ const rows=activeRows(k);
+ let body;
+ if(view==='Kanban')body=board(k,rows);
+ if(view==='Lista')body=renderTable(k==='crm'?['Lead','Negócio','Etapa','Origem','Próxima ação','Valor']:['Projeto','Etapa','Prazo','Versão'],rows.map(x=>k==='crm'?[rowButton(x.name,k,x.id),esc(x.client),statusTag(x.stage),esc(x.origin),shortDate(x.date),brl(x.amount)]:[rowButton(x.name,k,x.id),statusTag(x.stage),shortDate(x.date),esc(x.approval||'Pendente')]));
+ if(view==='Calendário')body=calendar(k,rows,k==='social'?state.cycle:state.contentMonth);
+ if(view==='Insights')body=renderInsights();
+ if(view==='Entrega')body=delivery(rows);
+ if(view==='Trilhas')body='<div class="tile-grid">'+rows.map(x=>'<button type="button" class="tile" data-act="open|study|'+esc(x.id)+'"><span class="tile-icon">'+icon('book')+'</span>'+statusTag(x.stage)+'<h3>'+esc(x.name)+'</h3><p>'+esc(x.note)+'</p><span class="meter"><i style="width:'+progress('study',x)+'%"></i></span><p>Meta até '+shortDate(x.date)+'</p></button>').join('')+'</div>';
+ return heading(navName(k),config.note,exportsBtn()+newBtn('Adicionar '+config.noun,'new|'+k))+'<div class="filterbar">'+menu(available,view,'sub')+filters+'</div>'+body;
+}
+function board(k,rows){
+ return '<div class="board-wrap"><div class="board">'+definitions[k].labels.map(stage=>{const cards=rows.filter(x=>x.stage===stage);return '<section class="lane" data-lane="'+esc(stage)+'" data-board="'+k+'"><div class="lane-title">'+esc(stage)+'<span class="count-pill">'+cards.length+'</span><button type="button" data-act="new|'+k+'|'+esc(stage)+'" aria-label="Adicionar em '+esc(stage)+'">'+icon('plus')+'</button></div>'+cards.map(x=>'<div class="board-card" tabindex="0" role="button" data-act="open|'+k+'|'+x.id+'" data-card="'+esc(x.id)+'" data-board="'+k+'">'+(x.cover?localImage(x.cover,'','board-cover'):'')+statusTag(x.kind&&x.formatDetail?x.kind+' · '+x.formatDetail:x.kind||x.stage)+'<strong>'+esc(x.name)+'</strong><p>'+esc(k==='crm'?x.client:x.note||x.client||'')+'</p><div class="card-foot"><span>'+shortDate(k==='content'?publishedOn(x)||x.date:x.date)+'</span><span>'+esc(k==='crm'?brl(x.amount):k==='social'?'v'+(x.version||1):'')+'</span></div></div>').join('')+(cards.length?'':empty('Sem cards'))+'</section>'}).join('')+'</div></div>';
+}
+function calendar(k,rows,month){
+ const [year,m]=month.split('-').map(Number), offset=(new Date(year,m-1,1).getDay()+6)%7, days=new Date(year,m,0).getDate();
+ return '<div class="board-wrap"><h2 class="section-title" style="margin-bottom:10px;text-transform:capitalize">'+esc(monthName(month))+'</h2><div class="cal-grid">'+['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map(x=>'<strong>'+x+'</strong>').join('')+Array.from({length:offset},()=>'<div></div>').join('')+Array.from({length:days},(_,i)=>{const date=month+'-'+String(i+1).padStart(2,'0');return '<div class="cal-cell'+(date===today?' today':'')+'">'+(i+1)+rows.filter(x=>(k==='content'?publishedOn(x)||x.date:x.date)===date).map(x=>button(x.name,'open|'+k+'|'+x.id,{cls:'event'})).join('')+'</div>'}).join('')+'</div></div>';
+}
+function delivery(rows){
+ const ready=rows.filter(x=>['Aprovado','Entregue'].includes(x.stage)).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+ return panel(panelTitle('Peças prontas · '+state.client,ready.length?button('Baixar pacote','package',{ic:'download'}):'')+(ready.length?renderTable(['Publicação','Peça','Legenda','Status'],ready.map(x=>[shortDate(x.date),rowButton(x.name,'social',x.id),esc(x.caption||'—'),statusTag(x.stage)])):empty('Quando uma peça for aprovada, ela aparece aqui.','empty-panel')));
+}
+const checklists={
+ idv:['Briefing e materiais','Pesquisa de mercado e público','Relatório estratégico aprovado','Conceito, símbolo, paleta e tipografia','Apresentação e ajustes aprovados','Manual e arquivos finais'],
+ social:['Pauta aprovada','Texto e legenda','Peça em revisão','Aprovação do cliente','Arquivos entregues'],
+ content:['Pauta e gancho','Roteiro ou texto','Produção','Revisão e publicação'],
+ study:['Sessão agendada','Aulas concluídas','Exercício aplicado'],
+ crm:[]
+};
+function cardDialog(k,id='',initial=''){
+ const x=get(k,id)||{};
+ const crm=k==='crm', social=k==='social', idv=k==='idv', content=k==='content';
+ const stages=definitions[k].labels;
+ let fields=field(crm?'Nome do lead':social?'Título da peça':idv?'Nome do projeto':'Título','name',x.name,'text','required');
+ if(crm||idv||social)fields+=field(crm?'Negócio':'Cliente','client',x.client||(social?state.client:''),'text','required');
+ if(content||social)fields+=formatPicker(x.kind);
+ if(k==='study')fields+=field('Ferramenta ou tema','kind',x.kind);
+ fields+=select('Etapa','stage',stages,x.stage||initial||stages[0])+field(crm?'Data da próxima ação':content?'Data planejada':'Prazo ou publicação','date',x.date??today,'date');
+ if(crm)fields+=select('Canal','kind',['WhatsApp','Instagram','Threads','LinkedIn','E-mail','Outro'],x.kind)+select('Origem','origin',['Prospecção','Conteúdo','Indicação','Outro'],x.origin)+field('Valor da proposta (R$)','amount',x.amount,'number','min="0" step="0.01"')+field('Contato','contact',x.contact)+select('Serviço','service',['Identidade Visual','Mídias Sociais'],x.service)+'<div class="checklist"><label><input type="checkbox" name="signed" '+(x.signed?'checked':'')+'> Contrato assinado</label><label><input type="checkbox" name="paid" '+(x.paid?'checked':'')+'> Entrada recebida</label></div>';
+ if(idv)fields+=field('Tipo de projeto','kind',x.kind)+select('Aprovação','approval',['Estratégia em revisão','Estratégia aprovada','Identidade apresentada','Identidade aprovada'],x.approval);
+ if(social)fields+=field('Ciclo','cycle',x.cycle||state.cycle,'month')+field('Versão','version',x.version||1,'number','min="1" step="1"')+field('Detalhe do formato','formatDetail',x.formatDetail||(x.kind?.includes(' · ')?x.kind.split(' · ').slice(1).join(' · '):''))+area('Legenda','caption',x.caption);
+ if(content)fields+=field('Data da publicação','publishedDate',publishedOn(x),'date')+field('CTA','cta',x.cta);
+ fields+=area(crm?'Próxima ação':'Observações','note',x.note);
+ if(crm)fields+=area('Histórico de conversas','history',x.history);
+ let detail='';
+ if(checklists[k].length)detail+='<h3>Checklist</h3><div class="checklist">'+checklists[k].map((label,i)=>'<label><input type="checkbox" name="step" value="'+i+'" '+(asList(x.done).includes(i)?'checked':'')+'> '+label+'</label>').join('')+'</div>';
+ if(x.id&&(social||idv))detail+='<h3>Documentos e arquivos</h3>'+attachmentList(db.docs.filter(d=>d.project===id))+button('Anexar arquivo','upload|'+id+'|'+encodeURIComponent(x.client),{ic:'upload'})+' '+button('Novo documento','new-doc|'+id+'|'+encodeURIComponent(x.client),{ic:'file'});
+ if(idv&&x.id){const maps=db.maps.filter(m=>m.project===id);detail+='<h3>Mapas mentais</h3>'+maps.map(m=>button(m.name,'open-map|'+m.id,{ic:'map'})).join(' ')+' '+button('Vincular novo mapa','new-map||'+id,{ic:'plus'});}
+ if(social&&x.feedback)detail+='<h3>Feedback do cliente</h3><p class="small">'+esc(x.feedback)+'</p>';
+ if(crm&&x.clientId)detail+='<div class="resource-head"><h3>Cliente vinculado</h3>'+button('Ver cliente','client-detail|'+x.clientId,{ic:'users'})+'</div>';
+ if(crm&&x.project)detail+='<p class="callout">Projeto vinculado a este lead.</p>';
+ if(crm&&x.id&&!x.project)detail+='<p class="small">Fechar cria a ficha e a pasta do cliente. Contrato e entrada confirmados iniciam o projeto.</p>';
+ const controls=social&&x.id&&['Aprovação','Ajustes','Aprovado'].includes(x.stage)?button('Abrir aprovação','review|'+id,{ic:'eye'}):'';
+ const body=content||social||idv?contentEditor(x,fields,detail,content,k):'<div class="form-grid">'+fields+'</div>'+detail;
+ modal(x.name||'Adicionar '+definitions[k].noun,body+formEnd('Salvar',controls),'card|'+k+'|'+id,true);
+}
+function createProject(lead){
+ if(lead.stage!=='Fechado')return;
+ const c=ensureClientOnClose(lead);
+ if(lead.project||!c||!lead.signed||!lead.paid)return;
+ const projectId=uid(), isSocial=lead.service==='Mídias Sociais', folderName=isSocial?'Mídias Sociais':'Identidade Visual';
+ const folder={id:uid(),parent:c.folder,name:folderName,clientId:c.id,project:projectId,color:c.color,date:today};
+ let sequence=2;
+ while(db.folders.some(f=>f.parent===folder.parent&&f.name===folder.name))folder.name=folderName+' '+sequence++;
+ db.folders.push(folder);
+ const x={id:projectId,name:c.name,client:c.name,clientId:c.id,folder:folder.id,date:lead.date||today,note:'Enviar boas-vindas, briefing e cronograma.',done:[]};
+ if(isSocial){x.name='Onboarding e primeira pauta';x.stage='Pauta';x.kind='Planejamento';x.cycle=state.cycle;db.social.push(x)}
+ else{x.stage='Onboarding';x.kind='Identidade Visual';db.idv.push(x)}
+ lead.project=x.id;
+ if(c.state==='Em onboarding')c.state='Ativo';
+}
+async function addOrEditCard(k,id,fd,form){
+ const previous=get(k,id),next={...previous,id:id||uid()};
+ const textFields=['name','client','kind','stage','date','origin','contact','service','approval','cycle','caption','cta','publishedDate','note','history','formatDetail'];
+ for(const field of textFields)if(fd.has(field))next[field]=clean(fd.get(field));
+ for(const field of ['amount','version'])if(fd.has(field))next[field]=Number(fd.get(field)||0);
+ if(!next.name)return;
+ if((k==='content'||k==='social')&&!next.kind){
+  contentTab('details');overlay.querySelector('.format-select')?.setAttribute('open','');toast('Selecione o formato da peça.');return;
+ }
+ if(k==='content'&&previous&&!Array.isArray(next.metrics))next.metrics=postHistory(previous);
+ if(k==='content'&&next.stage==='Publicado'&&!next.publishedDate){contentTab('details');toast('Informe a data da publicação.');return}
+ if(k==='content'&&next.publishedDate&&postHistory(next).some(x=>x.date<next.publishedDate)){contentTab('details');toast('A publicação precisa ser anterior à primeira atualização de métricas.');return}
+ if(['content','social','idv'].includes(k)){
+  try{await saveResources(next,form,fd)}catch(error){contentTab('references');toast(error.message);return}
+ }
+ if(k==='crm'){
+  next.signed=fd.has('signed');next.paid=fd.has('paid');
+  if(next.stage==='Fechado'&&!next.closedOn)next.closedOn=today;
+  createProject(next)
+ }else next.done=fd.getAll('step').map(Number);
+ if(k==='social'||k==='idv'){
+  const c=get('clients',next.clientId)||findClient(next.client);
+  if(c){next.clientId=c.id;next.client=c.name;next.folder=next.folder||c.folder}
+ }
+ if(previous)Object.assign(previous,next);else db[k].push(next);
+ if(k==='social'){state.client=next.client;state.cycle=next.cycle||state.cycle}
+ finish('Registro salvo.');
+}
+function openCard(k,id){
+ if(k==='task'){const item=get('tasks',id);if(item)taskDialog(item);return}
+ if(k==='event'){const item=get('events',id);if(item)eventDialog(item);return}
+ if(definitions[k]&&get(k,id))cardDialog(k,id);
+}
+function taskDialog(x={}){modal(x.id?'Editar tarefa':'Nova tarefa','<div class="form-grid">'+field('Tarefa','name',x.name,'text','required')+field('Horário','time',x.time,'time')+field('Projeto ou área','meta',x.meta)+'</div>'+formEnd(),'task|'+(x.id||''))}
+function eventDialog(x={}){modal(x.id?'Editar compromisso':'Novo compromisso','<div class="form-grid">'+field('Compromisso','name',x.name,'text','required')+field('Data','day',x.day||state.day,'date','required')+field('Horário','time',x.time||'09:00','time','required')+'</div>'+formEnd(),'event|'+(x.id||''))}
+function cycleDialog(){modal('Novo ciclo de mídias sociais','<div class="form-grid">'+field('Cliente','client',state.client,'text','required')+field('Mês','cycle',state.cycle,'month','required')+field('Quantidade de peças','count',6,'number','required min="1" max="30" step="1"')+select('Estrutura','structure',['Cards numerados','Reaproveitar nomes e formatos do último ciclo'],'Cards numerados')+'</div>'+formEnd('Criar ciclo'),'cycle')}
+function createCycle(fd){
+ const client=clean(fd.get('client')), cycle=fd.get('cycle'), count=Number(fd.get('count'));
+ if(db.social.some(x=>x.client===client&&x.cycle===cycle)){toast('Já existe um ciclo desse cliente neste mês.');return}
+ const pastMonth=db.social.filter(x=>x.client===client&&x.kind!=='Planejamento'&&x.cycle<cycle).map(x=>x.cycle).sort().at(-1);
+ const past=fd.get('structure')==='Cards numerados'?[]:db.social.filter(x=>x.client===client&&x.cycle===pastMonth&&x.kind!=='Planejamento');
+ for(let i=0;i<count;i++)db.social.push({id:uid(),name:past[i]?.name||'Peça '+String(i+1).padStart(2,'0'),client,cycle,stage:'Pauta',kind:past[i]?.kind||'A definir',date:'',note:'Definir a pauta e o formato.',done:[]});
+ state.client=client;state.cycle=cycle;finish('Ciclo criado com '+count+' peças.');
+}
+function clientPreview(){
+ const pieces=activeSocial().filter(x=>['Aprovação','Aprovado','Entregue','Ajustes'].includes(x.stage));
+ modal('Visão do cliente · '+state.client,'<p class="small">Prévia local do ciclo de '+esc(monthName(state.cycle))+'.</p><div class="search-list">'+(pieces.map(x=>'<button data-act="review|'+esc(x.id)+'">'+esc(x.name)+'<small>'+esc(x.stage)+' · v'+(x.version||1)+'</small></button>').join('')||empty('Ainda não há peças compartilhadas neste ciclo.'))+'</div>'+formEndNoSubmit());
+}
+const formEndNoSubmit=()=>'<div class="dialog-actions">'+button('Fechar','close',{cls:'btn ghost'})+'</div>';
+function review(id){
+ const x=get('social',id);if(!x)return;
+ const readonly=x.stage==='Entregue';
+ const demo=x.cover?localImage(x.cover,'Capa da peça','approval-cover'):x.id==='s2'?'<div class="social-preview" aria-label="Prévia conceitual da peça"><small>CASA ORLA</small><b>5 formas de<br>renovar sua sala.</b><i></i></div>':'';
+ modal('Aprovação · v'+(x.version||1),'<h3>'+esc(x.name)+'</h3>'+demo+'<p class="editor-text small">'+esc(x.caption||'Sem legenda cadastrada.')+'</p>'+attachmentList(db.docs.filter(d=>d.project===id&&d.shared))+(readonly?'<p class="callout">Peça entregue.</p>':'<div class="form-grid">'+area('Comentário para esta versão','feedback',x.feedback)+'</div><div class="dialog-actions"><button class="btn" type="submit" name="review" value="Ajustes">Solicitar ajustes</button><button class="btn primary" type="submit" name="review" value="Aprovado">Aprovar versão</button></div>'),'review|'+id,true);
+}
+function finish(message){if(services.signal.aborted)return;modalClose(false);render();if(persist())toast(message)}

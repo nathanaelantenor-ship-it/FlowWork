@@ -14,12 +14,14 @@ function savedClientFields(fd){
 }
 function linkProjectClient(next,previous,fd,k){
  const choice=fd.get('clientId');
+ if(previous?.clientDetached&&choice===legacyClient)return;
  const name=choice==='new'?clean(fd.get('newClient')):clean(fd.get('client')||next.client);
  let c=get('clients',choice)||findClient(name);
  if(!c&&name){
   const lead=db.crm.find(l=>normalizedName(l.client||l.name)===normalizedName(name));
   if(lead){
    lead.stage='Fechado';
+   lead.clientDetached=false;
    lead.service=navName(k);
    lead.project ||= next.id;
    c=ensureClientOnClose(lead);
@@ -32,10 +34,10 @@ function linkProjectClient(next,previous,fd,k){
  if(!c)return;
  const folder=ensureClientFolder(c);
  if(previous?.clientId!==c.id){next.folder=folder.id}
- next.clientId=c.id;next.client=c.name;next.folder ||= folder.id;
+ next.clientId=c.id;next.client=c.name;next.clientDetached=false;next.folder ||= folder.id;
 }
 function syncProjectPayment(k,x){
- if(!x.paymentDue||!Number.isFinite(x.amount)||x.amount<=0)return;
+ if(x.paymentRemoved||!x.paymentDue||!Number.isFinite(x.amount)||x.amount<=0)return;
  const old=db.finance.find(f=>f.sourceProject===x.id);
  if(old?.status==='Realizado'){
   Object.assign(old,{name:x.name,client:x.client,clientId:x.clientId});
@@ -194,7 +196,7 @@ function goalOpen(id){
  (items.map(i=>{const link=safeURL(i.link);return '<div class="fw-task"><button type="button" class="check'+(i.done?' done':'')+'" data-act="goal-toggle|'+esc(id)+'|'+esc(i.id)+'" aria-label="'+esc((i.done?'Reabrir ':'Concluir ')+i.name)+'">'+(i.done?icon('check'):'')+'</button><button type="button" class="fw-flat" data-act="goal-item|'+esc(id)+'|'+esc(i.id)+'"><b>'+esc(i.name)+'</b><small>'+brl(i.amount)+'</small></button>'+(link?'<a class="btn" target="_blank" rel="noopener noreferrer" href="'+esc(link.href)+'">Abrir link</a>':'')+'</div>'}).join('')||empty('Nenhum item cadastrado.'))+
  '<div class="resource-head"><h3>Aportes</h3>'+newBtn('Aporte','goal-contribution|'+id)+'</div>'+
  (asList(g.contributions).map(i=>'<div class="attachment-row">'+icon('wallet')+'<span>'+esc(i.name||'Aporte')+' · '+shortDate(i.date)+'</span><b>'+brl(i.amount)+'</b></div>').join('')||empty('Nenhum aporte registrado.'))+
- '<div class="dialog-actions">'+button('Editar meta','goal-edit|'+id,{ic:'pen'})+button('Fechar','close')+'</div>','',true);
+ '<div class="dialog-actions">'+deleteButton('goals',id)+button('Editar meta','goal-edit|'+id,{ic:'pen'})+button('Fechar','close')+'</div>','',true);
 }
 function goalItem(id,itemId=''){
  const g=get('goals',id);if(!g)return;

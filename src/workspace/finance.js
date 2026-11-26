@@ -35,7 +35,7 @@ function moneyDialog(id=''){
  field('Data prevista','date',x.date||today,'date','required')+select('Status','status',['Previsto','Realizado'],x.status||'Previsto')+field('Data de baixa','paidDate',x.paidDate,'date')+clientPicker(x)+select('Projeto','project',projectChoices(),x.project||'')+
  (id?(x.series?select('Aplicar a','scope',['Só este lançamento','Este e os próximos'],'Só este lançamento'):''):select('Frequência','frequency',['Único','Recorrente','Parcelado'],'Único')+'<div id="seriesFields" class="wide"></div>')+'</div>'+
  '<div id="salaryTip" class="callout'+(isSalary({...x,ledger,type})?'':' hide')+'">Essa despesa vai gerar uma receita de Salário na aba Pessoal.</div>';
- modal(x.id?'Editar lançamento':'Novo lançamento · '+(ledger==='empresa'?'Empresa':'Pessoal'),card+formEnd('Salvar',(x.id&&x.status!=='Realizado'?button(x.type==='in'?'Marcar como recebido':'Marcar como pago','paid-now|'+x.id,{ic:'check'}):'')+(x.id&&!x.sourceProject?button('Excluir','money-delete|'+x.id,{ic:'trash',cls:'btn danger'}):'')),'money|'+(x.id||'')+'|'+ledger);
+ modal(x.id?'Editar lançamento':'Novo lançamento · '+(ledger==='empresa'?'Empresa':'Pessoal'),card+formEnd('Salvar',deleteButton('finance',x.id)+(x.id&&x.status!=='Realizado'?button(x.type==='in'?'Marcar como recebido':'Marcar como pago','paid-now|'+x.id,{ic:'check'}):'')),'money|'+(x.id||'')+'|'+ledger);
 }
 function recurrenceFields(form,preserve=false){
  const holder=form.querySelector('#seriesFields');if(!holder)return;

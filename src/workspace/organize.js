@@ -5,7 +5,7 @@ function renderDocs(){
  const here=get('folders',state.folder), children=db.folders.filter(f=>(f.parent||'')===state.folder), rows=activeDocRows();
  const trail='<nav class="folder-trail" aria-label="Local da pasta">'+button('Documentos','folder-open|',{cls:'btn ghost',ic:'folder'})+
  folderTrail(state.folder).map(f=>icon('chevron')+button(f.name,'folder-open|'+f.id,{cls:'btn ghost'})).join('')+'</nav>';
- const controls=exportsBtn()+button('Enviar arquivo','upload',{ic:'upload'})+button('Documento','new-doc',{ic:'file'})+newBtn('Nova pasta','folder-edit');
+ const controls=exportsBtn()+button('Lixeira','doc-trash',{ic:'trash'})+button('Enviar arquivo','upload',{ic:'upload'})+button('Documento','new-doc',{ic:'file'})+newBtn('Nova pasta','folder-edit');
  const columns=['Nome','Cliente','Tipo','Atualizado'];
  return heading(here?here.name:'Documentos',here?'':'Pastas, arquivos e documentos de trabalho.',controls)+trail+
  (children.length?'<div class="folder-grid">'+children.map(folderCard).join('')+'</div>':'')+
@@ -26,7 +26,7 @@ function docDialog(ident='',project='',client=''){
  modal(d.name||'Novo documento',(file&&/^image\/(png|jpeg|webp|gif|avif)$/.test(d.mime||'')?localImage(d.id,d.name,'approval-cover'):'')+
  '<div class="form-grid">'+field('Título','name',d.name,'text','required')+field('Cliente','client',d.client??currentClient)+
  select('Projeto ou peça','project',projectChoices(),d.project||project)+folder+(file?'':area('Conteúdo','text',d.text))+sharingInput(d.shared)+'</div>'+
- formEnd(file?'Salvar arquivo':'Salvar documento',controls),'doc|'+ident,true);
+ formEnd(file?'Salvar arquivo':'Salvar documento',deleteButton('docs',ident)+controls),'doc|'+ident,true);
 }
 function uploadDialog(project='',client=''){
  const where=defaultFolder(project,client);
@@ -78,7 +78,7 @@ function drawMapLinks(){
 }
 function mapSettings(){
  const m=activeMap();
- modal('Editar mapa mental','<div class="form-grid">'+field('Título','name',m.name,'text','required')+clientPicker(m)+select('Projeto','project',projectChoices(),m.project)+'</div>'+formEnd(),'map-settings');
+ modal('Editar mapa mental','<div class="form-grid">'+field('Título','name',m.name,'text','required')+clientPicker(m)+select('Projeto','project',projectChoices(),m.project)+'</div>'+formEnd('Salvar',deleteButton('maps',m.id)),'map-settings');
 }
 function newMapDialog(template='',project=''){
  const selected=db.templates[Number(template)], p=findWork(project);

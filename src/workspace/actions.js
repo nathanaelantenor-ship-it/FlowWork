@@ -87,7 +87,9 @@ const actionHandlers={
  fstatus:x=>{state.fstatus=x;render()},
  'new-money':()=>moneyDialog(),
  money:moneyDialog,
- 'money-delete':id=>modal('Excluir lançamento','<p class="small">Se houver um salário vinculado a este pró-labore, ele será excluído junto.</p>'+formEnd('Excluir lançamento'),'money-delete|'+id),
+ 'record-delete':confirmRemoval,
+ 'doc-trash':documentTrash,
+ 'doc-restore':restoreDocument,
  categories:categoryList,
  'edit-cat':categoryDialog,
  'new-map':newMapDialog,
@@ -106,7 +108,7 @@ const actionHandlers={
 listen(document,'click',ev=>{
  if(ev.target.classList.contains('scrim')){modalClose();return}
  const trigger=ev.target.closest('[data-act]');if(!trigger)return;
- if(trigger.matches('[data-card]')&&Date.now()<suppressBoardClick)return;
+ if(trigger.closest('[data-card]')&&Date.now()<suppressBoardClick)return;
  const [key,...args]=trigger.dataset.act.split('|');
  if(['reference-preview','reference-remove'].includes(key)){actionHandlers[key](trigger);return}
  try{const consume=actionHandlers[key]?.(...args);consume?.catch?.(()=>toast('Não foi possível concluir esta ação.'))}catch(error){console.error(error);toast('Não foi possível concluir esta ação.')}
@@ -114,9 +116,9 @@ listen(document,'click',ev=>{
 listen(document,'keydown',ev=>{
  if(ev.key==='Escape'){if(overlay.firstChild)modalClose();else if(assistant.open)assistantToggle();else if(navDrag)finishNavDrag();else if(navEditing)toggleNavEditing();else if(state.mobile)actionHandlers.mobile();return}
  if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='k'){ev.preventDefault();openSearch()}
- if((ev.key==='Enter'||ev.key===' ')&&ev.target.classList.contains('board-card')){ev.preventDefault();ev.target.click()}
+ if((ev.key==='Enter'||ev.key===' ')&&ev.target.matches('.board-card[role="button"],.board-card-open')){ev.preventDefault();ev.target.click()}
  if(ev.key==='Tab'&&overlay.firstChild){
-  const focusable=[...overlay.querySelectorAll('button:not([disabled]),input:not([disabled]),select,textarea,[tabindex="0"]')];
+  const focusable=[...overlay.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex="0"]')];
   const first=focusable[0],last=focusable.at(-1);
   if(first&&last&&ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus()}
   else if(first&&last&&!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus()}
@@ -154,7 +156,7 @@ listen(document,'change',ev=>{
 });
 let boardDrag=null,suppressBoardClick=0;
 listen(main,'pointerdown',ev=>{
- const card=ev.target.closest('[data-card]');if(!card||ev.button!==0)return;
+ const card=ev.target.closest('[data-card]');if(!card||ev.button!==0||ev.target.closest('a[href]'))return;
  const r=card.getBoundingClientRect();
  boardDrag={card,id:card.dataset.card,k:card.dataset.board,pointer:ev.pointerId,x:ev.clientX,y:ev.clientY,left:r.left,top:r.top,width:r.width,ghost:null,over:null};
 });
@@ -189,7 +191,7 @@ function endBoardDrag(ev){
  row.stage=drag.over.dataset.lane;
  if((drag.k==='content'||editorialBoard(drag.k))&&row.stage==='Publicado'&&!row.publishedDate)row.publishedDate=today;
  const isClose=drag.k==='crm'&&row.stage==='Fechado';
- if(isClose&&!row.closedOn)row.closedOn=today;
+ if(isClose){row.clientDetached=false;row.closedOn ||= today}
  if(drag.k==='crm')createProject(row);render();
  const wrap=main.querySelector('.board-wrap');if(wrap)wrap.scrollLeft=left;
  if(persist())toast(isClose?'Negócio fechado. Ficha e pasta do cliente prontas.':'Movido para '+row.stage+'.');
@@ -231,9 +233,7 @@ listen(document,'submit',async ev=>{
    const x=get('social',a);const status=fd.get('review');if(x&&status){x.stage=status;x.feedback=clean(fd.get('feedback'));x.reviewVersion=x.version||1;if(status==='Aprovado')x.done=[...new Set([...asList(x.done),3])];finish(status==='Aprovado'?'Versão aprovada.':'Ajustes solicitados.')}
   }
   if(type==='money')moneyUpdate(a,b,fd);
-  if(type==='money-delete'){
-   db.finance=db.finance.filter(x=>x.id!==a);syncSalary();finish('Lançamento excluído.');
-  }
+  if(type==='record-delete')executeRemoval(a,b,fd);
   if(type==='category'){
    const old=get('categories',a),name=clean(fd.get('name')),special=a==='cat3'||a==='cat6';
    const next={id:a||uid(),ledger:state.ledger,type:(special||db.finance.some(x=>x.category===a))&&old?old.type:fd.get('type'),name:special?old.name:name,color:cleanColor(fd.get('color')),icon:fd.get('icon')};

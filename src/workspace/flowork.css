@@ -238,6 +238,16 @@ main{max-width:1500px;min-height:calc(100vh - 66px);padding:34px 32px 42px}
 .client-services span{background:#323740;border:1px solid #464b55;border-radius:999px;color:#dbe0ec;padding:4px 6px;font-size:11px}
 .client-card-foot{border-top:1px solid #41454f;padding-top:9px;display:flex;align-items:center;justify-content:space-between;gap:6px}
 .client-card-foot .btn{padding:5px 9px;min-height:28px}
+.client-card-foot{flex-wrap:wrap}
+.whatsapp-button{background:#22352d;border-color:#3e6553;color:#c6f1d9}
+.whatsapp-button:hover,.whatsapp-button:focus-visible{background:#2e483c;border-color:var(--accent);color:#e1ffeb}
+.whatsapp-button.icon-btn{flex:none;width:36px;height:36px}
+.crm-card{display:flex;gap:8px;align-items:flex-start}
+.board-card-open{min-width:0;flex:1;cursor:pointer}
+.record-delete-name{overflow-wrap:anywhere;font-weight:650}
+.dialog .btn.danger{border-color:#85515a}
+.dialog button[type=submit].danger{background:#713b46;color:#fff0f1}
+.dialog button[type=submit].danger:hover{background:#864651}
 .client-dialog-top{display:flex;align-items:center;gap:11px;padding:8px 0}
 .client-dialog-top .avatar{width:52px;height:52px}
 .client-dialog-top h3,.client-dialog-top p{margin:4px 0 0}

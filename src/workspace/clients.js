@@ -14,7 +14,7 @@ function ensureClientFolder(client){
  return f;
 }
 function ensureClientOnClose(lead){
- if(lead.stage!=='Fechado')return null;
+ if(lead.stage!=='Fechado'||lead.clientDetached)return null;
  const name=clean(lead.client||lead.name);
  if(!name)return null;
  let c=get('clients',lead.clientId)||findClient(name);
@@ -50,7 +50,8 @@ function renderClients(){
   return '<article class="client-card" style="--client-tone:'+cleanColor(c.color)+'">'+
    '<button type="button" class="client-identity" data-act="client-detail|'+esc(c.id)+'">'+avatar(c,'avatar client-avatar')+'<span><strong>'+esc(c.name)+'</strong><small>'+esc(c.person||'Contato a definir')+'</small></span>'+icon('chevron')+'</button>'+
    '<div class="client-services">'+(types.length?types.map(x=>'<span>'+esc(x)+'</span>').join(''):'<span>Serviço a definir</span>')+'</div>'+
-   '<div class="client-card-foot">'+statusTag(c.state)+button('Pasta','folder-open|'+c.folder,{ic:'folder',cls:'btn ghost'})+'</div></article>';
+   '<div class="client-card-foot">'+statusTag(c.state)+whatsappButton(c.contact,c.name,true)+
+   (get('folders',c.folder)?button('Pasta','folder-open|'+c.folder,{ic:'folder',cls:'btn ghost'}):'')+'</div></article>';
  }).join('');
  return heading('Clientes','Contatos, serviços e arquivos do cliente.',exportsBtn()+newBtn('Cliente','client-edit'))+
  '<div class="client-overview">'+[['Clientes cadastrados',db.clients.length,'brief'],['Em atendimento',active,'check'],['Em onboarding',onboard,'flag']].map(([label,n,ic])=>'<div>'+icon(ic)+'<span>'+label+'</span><b>'+n+'</b></div>').join('')+'</div>'+
@@ -62,10 +63,10 @@ function clientDetail(id){
  const projects=clientProjects(c),leads=db.crm.filter(l=>l.clientId===c.id);
  modal(c.name,'<div class="client-dialog-top">'+avatar(c,'avatar client-avatar')+'<div>'+statusTag(c.state)+'<h3>'+esc(c.person||'Contato a definir')+'</h3><p class="small">'+esc([c.channel,c.contact].filter(Boolean).join(' · ')||'Contato pendente')+'</p></div>'+ib('pen','Editar cliente','client-edit|'+c.id)+'</div>'+
  (c.note?'<p class="editor-text">'+esc(c.note)+'</p>':'')+
- '<div class="resource-head"><h3>Documentos</h3>'+button('Abrir pasta','folder-open|'+c.folder,{ic:'folder'})+'</div>'+
+ (get('folders',c.folder)?'<div class="resource-head"><h3>Documentos</h3>'+button('Abrir pasta','folder-open|'+c.folder,{ic:'folder'})+'</div>':'')+
  '<h3>Projetos e peças</h3><div class="search-list">'+(projects.length?projects.map(([k,x])=>'<button type="button" data-act="open|'+k+'|'+x.id+'">'+esc(x.name)+'<small>'+esc(navName(k)+' · '+x.stage)+'</small></button>').join(''):empty('O projeto aparece após registrar contrato e entrada no Comercial.'))+'</div>'+
  (leads.length?'<h3>Negócios no Comercial</h3><div class="search-list">'+leads.map(x=>'<button type="button" data-act="open|crm|'+esc(x.id)+'">'+esc(x.name)+'<small>'+esc(x.stage)+' · '+brl(x.amount)+'</small></button>').join('')+'</div>':'')+
- formEndNoSubmit(),'',true);
+ '<div class="dialog-actions">'+deleteButton('clients',c.id)+whatsappButton(c.contact,c.name)+button('Fechar','close')+'</div>','',true);
 }
 function clientDialog(id=''){
  const c=get('clients',id)||{};
@@ -74,7 +75,7 @@ function clientDialog(id=''){
  field('Empresa ou cliente','name',c.name,'text','required')+field('Pessoa de contato','person',c.person)+
  field('Contato','contact',c.contact)+select('Canal','channel',['WhatsApp','Instagram','Threads','LinkedIn','E-mail','Outro'],c.channel)+
  select('Status','state',statusOptions,c.state||'Em onboarding')+field('Cor do card','color',c.color||clientColors[db.clients.length%clientColors.length],'color')+
- area('Observações','note',c.note)+'</div>'+formEnd('Salvar cliente'),'client|'+id,true);
+ area('Observações','note',c.note)+'</div>'+formEnd('Salvar cliente',deleteButton('clients',id)),'client|'+id,true);
 }
 async function saveClient(id,fd){
  const old=get('clients',id),name=clean(fd.get('name'));
@@ -119,7 +120,7 @@ function folderDialog(id=''){
  modal(f.id?'Editar pasta':'Nova pasta','<div class="form-grid">'+
  field('Nome da pasta','name',f.name,'text','required')+field('Cor da pasta','color',f.color||'#adbedb','color')+
  select('Local','parent',folderChoices(id),f.parent??state.folder)+select('Cliente','clientId',folderClients(),client)+select('Projeto ou peça','project',projectChoices(),f.project||'')+
- '</div>'+formEnd('Salvar pasta'),'folder|'+id);
+ '</div>'+formEnd('Salvar pasta',deleteButton('folders',id)),'folder|'+id);
 }
 function saveFolder(id,fd){
  const current=get('folders',id),name=clean(fd.get('name')),parent=fd.get('parent');

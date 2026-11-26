@@ -7,24 +7,33 @@ function followUpQueue(){
  return db.crm.filter(lead=>lead.date&&lead.date<=today&&!['Fechado','Perdido'].includes(lead.stage))
   .sort(byDate);
 }
-function followUpLink(lead){
- const target=safeURL(lead.contact);
- if(target&&['wa.me','api.whatsapp.com','web.whatsapp.com'].includes(target.hostname))return target.href;
- const raw=clean(lead.contact);
+function whatsappLink(contact){
+ const target=safeURL(contact);
+ if(target&&['wa.me','api.whatsapp.com','web.whatsapp.com'].includes(target.host)){
+  target.protocol='https:';
+  return target.href;
+ }
+ const raw=clean(contact);
  if(!/^\+?[0-9 ().-]{10,21}$/.test(raw))return '';
  const digits=raw.replace(/\D/g,'');
  if(digits.length<10||digits.length>15)return '';
- return 'https://wa.me/'+(digits.length<=11?'55':'')+digits;
+ return 'https://wa.me/'+(!raw.startsWith('+')&&digits.length<=11?'55':'')+digits;
+}
+function whatsappButton(contact,name,compact=false){
+ const url=whatsappLink(contact);
+ if(!url)return '';
+ const label=esc('Chamar '+name+' no WhatsApp');
+ return '<a class="'+(compact?'icon-btn':'btn')+' whatsapp-button" href="'+esc(url)+'" rel="noopener noreferrer" target="_blank" aria-label="'+label+'" title="'+label+'">'+
+ icon('whatsapp')+(compact?'':'WhatsApp')+'</a>';
 }
 function followUpPanel(){
  const rows=followUpQueue();
  return panel(panelTitle('Follow-ups para hoje',button('Abrir Comercial','go|crm'))+
  (rows.length?rows.slice(0,6).map(lead=>{
   const last=db.followUps.findLast(x=>x.lead===lead.id);
-  const link=followUpLink(lead);
   return '<article class="fw-follow-item"><div><b>'+esc(lead.client||lead.name)+'</b><small>'+esc(lead.note||lead.stage)+'</small><small>'+
    (last?'Último contato '+shortDate(last.date)+' · ':'')+ (lead.date<today?'Atrasado desde ':'Retorno em ')+shortDate(lead.date)+'</small></div>'+
-   (link?'<a class="btn ghost" href="'+esc(link)+'" rel="noopener noreferrer" target="_blank">WhatsApp</a>':'')+
+   whatsappButton(lead.contact,lead.name)+
    button('Registrar contato','follow-up|'+lead.id,{ic:'check'})+'</article>';
  }).join(''):empty('Nenhum retorno pendente hoje.')),'fw-follow');
 }
@@ -128,7 +137,7 @@ function undoAssistantAction(id){
 function workspaceAssets(snapshot){
  const files=new Map();
  const add=(id,name)=>{if(id&&!files.has(id))files.set(id,name)};
- for(const d of snapshot.docs)if(d.kind==='Arquivo')add(d.id,d.name);
+ for(const d of [...snapshot.docs,...asList(snapshot.trashedDocs)])if(d.kind==='Arquivo')add(d.id,d.name);
  for(const x of [snapshot.profile,...snapshot.clients])add(x.photo,'foto');
  add(snapshot.preferences?.homePhoto,'capa-da-home');add(snapshot.preferences?.agendaPhoto,'capa-da-agenda');
  const boards=['idv','social','content',...Object.keys(snapshot.serviceSettings||{}).filter(k=>/^svc-[a-z]+$/.test(k))];

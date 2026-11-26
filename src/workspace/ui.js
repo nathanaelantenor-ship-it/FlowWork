@@ -42,7 +42,7 @@ function renderBoardPage(k){
  const rows=activeRows(k);
  let body;
  if(view==='Kanban')body=board(k,rows);
- if(view==='Lista')body=renderTable(k==='crm'?['Lead','Negócio','Etapa','Origem','Próxima ação','Valor']:['Projeto','Etapa','Prazo','Versão'],rows.map(x=>k==='crm'?[rowButton(x.name,k,x.id),esc(x.client),statusTag(x.stage),esc(x.origin),shortDate(x.date),brl(x.amount)]:[rowButton(x.name,k,x.id),statusTag(x.stage),shortDate(x.date),esc(x.approval||'Pendente')]));
+ if(view==='Lista')body=renderTable(k==='crm'?['Lead','Negócio','Etapa','Origem','Próxima ação','Valor']:['Projeto','Etapa','Prazo','Versão'],rows.map(x=>k==='crm'?['<span class="inline">'+rowButton(x.name,k,x.id)+whatsappButton(x.contact,x.name,true)+'</span>',esc(x.client),statusTag(x.stage),esc(x.origin),shortDate(x.date),brl(x.amount)]:[rowButton(x.name,k,x.id),statusTag(x.stage),shortDate(x.date),esc(x.approval||'Pendente')]));
  if(view==='Calendário')body=calendar(k,rows,k==='social'?state.cycle:state.contentMonth);
  if(view==='Insights')body=serviceBoard(k)?serviceInsights(k):renderInsights();
  if(view==='Entrega')body=delivery(rows);
@@ -50,7 +50,21 @@ function renderBoardPage(k){
  return heading(navName(k),config.note,exportsBtn()+(serviceBoard(k)?button('Personalizar','service-config|'+k,{ic:'pen'}):'')+newBtn('Adicionar '+config.noun,'new|'+k))+'<div class="filterbar">'+menu(available,view,'sub')+filters+'</div>'+body;
 }
 function board(k,rows){
- return '<div class="board-wrap"><div class="board">'+definitions[k].labels.map(stage=>{const cards=rows.filter(x=>x.stage===stage);return '<section class="lane" data-lane="'+esc(stage)+'" data-board="'+k+'"><div class="lane-title">'+esc(stage)+'<span class="count-pill">'+cards.length+'</span><button type="button" data-act="new|'+k+'|'+esc(stage)+'" aria-label="Adicionar em '+esc(stage)+'">'+icon('plus')+'</button></div>'+cards.map(x=>'<div class="board-card" tabindex="0" role="button" data-act="open|'+k+'|'+x.id+'" data-card="'+esc(x.id)+'" data-board="'+k+'">'+(x.cover?localImage(x.cover,'','board-cover'):'')+statusTag(x.kind&&x.formatDetail?x.kind+' · '+x.formatDetail:x.kind||x.stage)+'<strong>'+esc(x.name)+'</strong><p>'+esc(k==='crm'?x.client:x.note||x.client||'')+'</p><div class="card-foot"><span>'+shortDate(k==='content'||editorialBoard(k)?publishedOn(x)||x.date:x.date)+'</span><span>'+esc(k==='crm'?brl(x.amount):k==='social'?'v'+(x.version||1):'')+'</span></div></div>').join('')+(cards.length?'':empty('Sem cards'))+'</section>'}).join('')+'</div></div>';
+ return '<div class="board-wrap"><div class="board">'+definitions[k].labels.map(stage=>{
+  const cards=rows.filter(x=>x.stage===stage);
+  return '<section class="lane" data-lane="'+esc(stage)+'" data-board="'+k+'"><div class="lane-title">'+esc(stage)+'<span class="count-pill">'+cards.length+'</span><button type="button" data-act="new|'+k+'|'+esc(stage)+'" aria-label="Adicionar em '+esc(stage)+'">'+icon('plus')+'</button></div>'+
+   (cards.length?cards.map(x=>boardCard(k,x)).join(''):empty('Sem cards'))+'</section>';
+ }).join('')+'</div></div>';
+}
+function boardCard(k,x){
+ const open=' tabindex="0" role="button" data-act="open|'+k+'|'+esc(x.id)+'"';
+ const data=' data-card="'+esc(x.id)+'" data-board="'+k+'"';
+ const content=(x.cover?localImage(x.cover,'','board-cover'):'')+
+  statusTag(x.kind&&x.formatDetail?x.kind+' · '+x.formatDetail:x.kind||x.stage)+'<strong>'+esc(x.name)+'</strong><p>'+esc(k==='crm'?x.client:x.note||x.client||'')+'</p>'+
+  '<div class="card-foot"><span>'+shortDate(k==='content'||editorialBoard(k)?publishedOn(x)||x.date:x.date)+'</span><span>'+esc(k==='crm'?brl(x.amount):k==='social'?'v'+(x.version||1):'')+'</span></div>';
+ if(k!=='crm')return '<div class="board-card"'+open+data+'>'+content+'</div>';
+ return '<article class="board-card crm-card"'+data+'><div class="board-card-open"'+open+'>'+content+'</div>'+
+  whatsappButton(x.contact,x.name,true)+'</article>';
 }
 function calendar(k,rows,month){
  const [year,m]=month.split('-').map(Number), offset=(new Date(year,m-1,1).getDay()+6)%7, days=new Date(year,m,0).getDate();
@@ -81,6 +95,7 @@ function cardDialog(k,id='',initial=''){
  fields+=select('Etapa','stage',stages,x.stage||initial||stages[0])+field(crm?'Data da próxima ação':content?'Data planejada':'Data de entrega','date',x.date??today,'date',projectWork?'required':'');
  if(projectWork)fields+=field(editorial?'Valor (R$, opcional)':'Valor do projeto (R$)','amount',x.amount,'number',(booked?'readonly ':editorial||x.id&&!x.paymentDue?'':'required ')+'min="0.01" step="0.01"')+field(editorial?'Recebimento (se houver cobrança)':'Data prevista de recebimento','paymentDue',x.paymentDue,'date',booked?'readonly':editorial||x.id&&!x.paymentDue?'':'required');
  if(booked)fields+='<div class="callout wide">Recebimento já confirmado. Abra o Financeiro para consultar ou corrigir a baixa.</div>';
+ if(projectWork&&x.paymentRemoved)fields+='<div class="callout wide">Lançamento financeiro excluído. Altere o valor ou a data de recebimento para lançar novamente.</div>';
  if(crm)fields+=select('Canal','kind',['WhatsApp','Instagram','Threads','LinkedIn','E-mail','Outro'],x.kind)+select('Origem','origin',['Prospecção','Conteúdo','Indicação','Outro'],x.origin)+field('Valor da proposta (R$)','amount',x.amount,'number','min="0" step="0.01"')+field('Contato','contact',x.contact)+select('Serviço','service',workBoards().map(navName),x.service)+'<div class="checklist"><label><input type="checkbox" name="signed" '+(x.signed?'checked':'')+'> Contrato assinado</label><label><input type="checkbox" name="paid" '+(x.paid?'checked':'')+'> Entrada recebida</label></div>';
  if(idv)fields+=select('Tipo de projeto','kind',[...new Set(['Identidade Visual','Redesign','Rebranding',x.kind].filter(Boolean))],x.kind||'Identidade Visual')+select('Aprovação','approval',['Estratégia em revisão','Estratégia aprovada','Identidade apresentada','Identidade aprovada'],x.approval);
  if(social)fields+=field('Ciclo','cycle',x.cycle||state.cycle,'month')+field('Versão','version',x.version||1,'number','min="1" step="1"')+field('Detalhe do formato','formatDetail',x.formatDetail||(x.kind?.includes(' · ')?x.kind.split(' · ').slice(1).join(' · '):''))+area('Legenda','caption',x.caption);
@@ -94,10 +109,11 @@ function cardDialog(k,id='',initial=''){
  if(social&&x.feedback)detail+='<h3>Feedback do cliente</h3><p class="small">'+esc(x.feedback)+'</p>';
  if(crm&&x.clientId)detail+='<div class="resource-head"><h3>Cliente vinculado</h3>'+button('Ver cliente','client-detail|'+x.clientId,{ic:'users'})+'</div>';
  if(crm&&x.project)detail+='<p class="callout">Projeto vinculado a este lead.</p>';
- if(crm&&x.id&&!x.project)detail+='<p class="small">Fechar cria a ficha e a pasta do cliente. Contrato e entrada confirmados iniciam o projeto.</p>';
+ if(crm&&x.id&&!x.project&&!x.clientDetached)detail+='<p class="small">Fechar cria a ficha e a pasta do cliente. Contrato e entrada confirmados iniciam o projeto.</p>';
  const controls=social&&x.id&&['Aprovação','Ajustes','Aprovado'].includes(x.stage)?button('Abrir aprovação','review|'+id,{ic:'eye'}):'';
  const body=content||projectWork?contentEditor(x,fields,detail,editableMetrics,k):'<div class="form-grid">'+fields+'</div>'+detail;
- modal(x.name||'Adicionar '+definitions[k].noun,body+formEnd('Salvar',controls),'card|'+k+'|'+id,true);
+ modal(x.name||'Adicionar '+definitions[k].noun,body+formEnd('Salvar',deleteButton(k,id)+
+  (crm&&id?whatsappButton(x.contact,x.name):'')+controls),'card|'+k+'|'+id,true);
 }
 function createProject(lead){
  if(lead.stage!=='Fechado')return;
@@ -132,11 +148,13 @@ async function addOrEditCard(k,id,fd,form){
  }
  if(k==='crm'){
   next.signed=fd.has('signed');next.paid=fd.has('paid');
+  if(next.stage==='Fechado'&&previous?.stage!=='Fechado')next.clientDetached=false;
   if(next.stage==='Fechado'&&!next.closedOn)next.closedOn=today;
   createProject(next)
  }else next.done=fd.getAll('step').map(Number);
  if(k==='social'||k==='idv'||serviceBoard(k)){
   linkProjectClient(next,previous,fd,k);
+  if(next.paymentRemoved&&(next.amount!==previous?.amount||next.paymentDue!==previous?.paymentDue))next.paymentRemoved=false;
   syncProjectPayment(k,next);
  }
  if(previous)Object.assign(previous,next);else db[k].push(next);
@@ -149,8 +167,8 @@ function openCard(k,id){
  if(k==='event'){const item=get('events',id);if(item)eventDialogNext(id);return}
  if(definitions[k]&&get(k,id))cardDialog(k,id);
 }
-function taskDialog(x={}){modal(x.id?'Editar tarefa':'Nova tarefa','<div class="form-grid">'+field('Tarefa','name',x.name,'text','required')+field('Data','date',x.date||today,'date','required')+field('Horário','time',x.time,'time')+select('Projeto','project',projectChoices(),x.project||'')+clientPicker(x)+field('Contexto','meta',x.meta)+'</div>'+formEnd(),'task|'+(x.id||''))}
-function eventDialog(x={}){modal(x.id?'Editar compromisso':'Novo compromisso','<div class="form-grid">'+field('Compromisso','name',x.name,'text','required')+field('Data','day',x.day||state.day,'date','required')+field('Início','time',x.time||'09:00','time','required')+field('Término','end',x.end,'time')+field('Link do Meet ou da reunião','meeting',x.meeting,'url')+select('Vincular a','party',meetingChoices(),x.party||'')+area('Pauta','note',x.note)+'</div>'+formEnd(),'event|'+(x.id||''))}
+function taskDialog(x={}){modal(x.id?'Editar tarefa':'Nova tarefa','<div class="form-grid">'+field('Tarefa','name',x.name,'text','required')+field('Data','date',x.date||today,'date','required')+field('Horário','time',x.time,'time')+select('Projeto','project',projectChoices(),x.project||'')+clientPicker(x)+field('Contexto','meta',x.meta)+'</div>'+formEnd('Salvar',deleteButton('tasks',x.id)),'task|'+(x.id||''))}
+function eventDialog(x={}){modal(x.id?'Editar compromisso':'Novo compromisso','<div class="form-grid">'+field('Compromisso','name',x.name,'text','required')+field('Data','day',x.day||state.day,'date','required')+field('Início','time',x.time||'09:00','time','required')+field('Término','end',x.end,'time')+field('Link do Meet ou da reunião','meeting',x.meeting,'url')+select('Vincular a','party',meetingChoices(),x.party||'')+area('Pauta','note',x.note)+'</div>'+formEnd('Salvar',deleteButton('events',x.id)),'event|'+(x.id||''))}
 function cycleDialog(){modal('Novo ciclo de mídias sociais','<div class="form-grid">'+clientPicker({},state.client,true)+field('Mês','cycle',state.cycle,'month','required')+field('Quantidade de peças','count',6,'number','required min="1" max="30" step="1"')+select('Estrutura','structure',['Cards numerados','Reaproveitar nomes e formatos do último ciclo'],'Cards numerados')+'</div>'+formEnd('Criar ciclo'),'cycle')}
 function createCycle(fd){
  const cycle=fd.get('cycle'), count=Number(fd.get('count'));

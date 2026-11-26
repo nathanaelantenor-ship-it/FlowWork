@@ -1,5 +1,6 @@
 const listen=(target,event,handler)=>target.addEventListener(event,handler,{signal:services.signal});
 const icoPaths={
+ whatsapp:'M20.5 11.7a8.5 8.5 0 0 1-12.7 7.4L3 20.5l1.4-4.7a8.5 8.5 0 1 1 16.1-4.1z M9 8c-1.3-.5-1.8.4-1.5 1.8.6 2.7 3.3 5.5 6 6 .9.2 1.7-.5 1.8-1.6l-2.6-1.3-.9 1c-1.2-.6-2.2-1.6-2.7-2.8l.9-.9z',
  logo:'M4.5 17.5c3.5 0 3.5-5.5 7-5.5h8 M4.5 12c3.5 0 3.5-5.5 7-5.5h8 M12.5 17.5h7', users:'M9 11a3.25 3.25 0 1 0 0-6.5A3.25 3.25 0 0 0 9 11z M3 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2 M16 5a3 3 0 0 1 0 6 M21 20v-2a4 4 0 0 0-3-3.9', home:'M3 10.5 12 3l9 7.5V21H3z M9 21v-7h6v7',
  columns:'M3 4h18v16H3z M9 4v16 M15 4v16', pen:'m4 20 4-1 11-11-3-3L5 16z M13 7l4 4 M19 5l1-1', layers:'m12 3 9 5-9 5-9-5z M3 12l9 5 9-5 M3 16l9 5 9-5', play:'M4 5h16v14H4z M10 8l6 4-6 4z', book:'M3 5c4-2 6-1 9 1v15c-3-2-5-3-9-1z M21 5c-4-2-6-1-9 1v15c3-2 5-3 9-1z',
  folder:'M3 7h7l2 2h9v10H3z M3 7V5h7l2 2h8v2', map:'M12 6v6 M5 18v-5h14v5 M12 13v5 M9 3h6v4H9z M2 18h6v4H2z M9 18h6v4H9z M16 18h6v4h-6z',

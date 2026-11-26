@@ -1,5 +1,5 @@
 const createOptions=[
- ['Tarefa','check','new-task'],['Compromisso','calendar','new-event'],['Lead','columns','new|crm'],['Cliente','users','client-edit'],['Pasta','folder','folder-edit'],['Projeto de IDV','pen','new|idv'],['Peça de mídias sociais','layers','new|social'],['Ciclo de mídias sociais','repeat','new-cycle'],['Conteúdo próprio','play','new|content'],['Estudo','book','new|study'],['Documento','file','new-doc'],['Arquivo','upload','upload'],['Mapa mental','map','new-map'],['Lançamento','wallet','new-money']
+ ['Meta','target','goal-edit'],['Tarefa','check','new-task'],['Compromisso','calendar','new-event'],['Lead','columns','new|crm'],['Cliente','users','client-edit'],['Pasta','folder','folder-edit'],['Projeto de IDV','pen','new|idv'],['Peça de mídias sociais','layers','new|social'],['Ciclo de mídias sociais','repeat','new-cycle'],['Conteúdo próprio','play','new|content'],['Estudo','book','new|study'],['Documento','file','new-doc'],['Arquivo','upload','upload'],['Mapa mental','map','new-map'],['Lançamento','wallet','new-money']
 ];
 function searchResults(term){
  const items=nav.map(([id,ic,title])=>[title,'Módulo','go|'+id]).concat(
@@ -15,14 +15,42 @@ function openSearch(){modal('Buscar no Flowork','<input type="search" class="fie
 const actionHandlers={
  account:()=>services.openAccount(),
  go:go,
+ 'nav-customize':toggleNavEditing,
+ 'nav-area':areaDialog,
+ 'follow-up':followUpDialog,
+ 'assistant-history':assistantHistoryDialog,
+ 'assistant-undo-confirm':undoAssistantDialog,
+ 'assistant-undo':undoAssistantAction,
+ 'assistant-confirm':confirmAssistantSeries,
+ 'assistant-toggle':assistantToggle,
+ 'assistant-example':id=>{assistant.open=true;assistantSend(id==='diagnostico'&&state.view==='finance'?'Faça um diagnóstico financeiro de '+state.period+' da '+(state.ledger==='empresa'?'empresa':'conta pessoal')+'.':chatExamples[id])},
+ 'assistant-sample':assistantSample,
+ 'assistant-finance':chatFinance,
+ 'assistant-project':chatOpenProject,
+ 'service-add':serviceAdd,
+ 'service-config':serviceConfig,
  close:()=>modalClose(),
  mobile:()=>{state.mobile=!state.mobile;sidebar.classList.toggle('mobile-open',state.mobile)},
  create:()=>modal('Criar no Flowork','<div class="grid-menu">'+createOptions.map(([text,ic,act])=>button(text,act,{cls:'btn',ic})).join('')+'</div>'),
  search:openSearch,
- notices:()=>modal('Pendências','<div class="search-list">'+db.tasks.filter(t=>!t.done).map(x=>'<button data-act="open|'+esc(x.ref?x.ref.join('|'):'task|'+x.id)+'">'+esc(x.name)+'<small>'+esc(x.meta||'Tarefa pendente')+'</small></button>').join('')+db.social.filter(x=>x.stage==='Aprovação').map(x=>'<button data-act="review|'+esc(x.id)+'">'+esc(x.name)+'<small>'+esc(x.client)+' · Aguardando aprovação</small></button>').join('')+'</div>'),
+ notices:reminderDialog,
+ 'wall':appearanceDialog,
+ 'project-create':chooseProject,
+ 'project-filter':v=>{state.projectType=v;render()},
+ 'project-pick':(k,id)=>{state.projectPick=id;render()},
+ 'project-jump':(k,id)=>{state.projectType='Todos';state.projectPick=id;go('projects')},
+ 'agenda-month':n=>{state.day=addMonths(state.day,Number(n));render()},
+ 'goal-edit':goalDialog,
+ 'goal-open':goalOpen,
+ 'goal-item':goalItem,
+ 'goal-contribution':goalContribution,
+ 'goal-toggle':(id,i)=>{const g=get('goals',id), item=g?.items.find(x=>x.id===i);if(item){item.done=!item.done;render();persist();goalOpen(id)}},
+ 'set-theme':v=>{prefs().theme=({'Claro':'light','Escuro':'dark','Padrão do dispositivo':'system'})[v]||'system';render();persist()},
+ 'workspace-logout':()=>services.logout?.(),
+ 'paid-now':id=>{const entry=get('finance',id);if(entry&&!entry.mirror){entry.status='Realizado';entry.paidDate=today;syncSalary();finish(entry.type==='in'?'Recebimento confirmado.':'Pagamento confirmado.')}},
  day:d=>{state.day=d;render()},
  week:d=>{state.day=addDays(state.day,Number(d));render()},
- task:id=>{const t=get('tasks',id);if(t){t.done=!t.done;render();persist()}},
+ task:id=>{const t=get('tasks',id);if(t){t.done=!t.done;render();persist();checkReminders()}},
  'all-tasks':()=>modal('Tarefas de hoje','<div class="search-list">'+db.tasks.map(t=>'<button type="button" data-act="open|task|'+esc(t.id)+'">'+esc(t.name)+'<small>'+esc((t.done?'Concluída':'Pendente')+(t.time?' · '+t.time:''))+'</small></button>').join('')+'</div><div class="dialog-actions">'+newBtn('Nova tarefa','new-task')+'</div>'),
  'new-task':()=>taskDialog(),
  'new-event':()=>eventDialog(),
@@ -84,7 +112,7 @@ listen(document,'click',ev=>{
  try{const consume=actionHandlers[key]?.(...args);consume?.catch?.(()=>toast('Não foi possível concluir esta ação.'))}catch(error){console.error(error);toast('Não foi possível concluir esta ação.')}
 });
 listen(document,'keydown',ev=>{
- if(ev.key==='Escape'){if(overlay.firstChild)modalClose();else if(state.mobile)actionHandlers.mobile();return}
+ if(ev.key==='Escape'){if(overlay.firstChild)modalClose();else if(assistant.open)assistantToggle();else if(navDrag)finishNavDrag();else if(navEditing)toggleNavEditing();else if(state.mobile)actionHandlers.mobile();return}
  if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='k'){ev.preventDefault();openSearch()}
  if((ev.key==='Enter'||ev.key===' ')&&ev.target.classList.contains('board-card')){ev.preventDefault();ev.target.click()}
  if(ev.key==='Tab'&&overlay.firstChild){
@@ -100,6 +128,8 @@ listen(document,'input',ev=>{
 });
 listen(document,'change',ev=>{
  const input=ev.target, prop=input.dataset.change;
+ if(input.name==='clientId'){const fields=input.closest('form')?.querySelector('.new-client-fields');if(fields){fields.classList.toggle('hide',input.value!=='new');fields.querySelector('[name=newClient]').required=input.value==='new'} }
+ if(input.matches('input[type=file]')) showImageControls(input);
  if(prop&&(input.value||['insightFrom','insightTo','insightFormat'].includes(prop))){
   if(prop==='insightFrom'&&state.insightTo&&input.value>state.insightTo)state.insightTo='';
   if(prop==='insightTo'&&state.insightFrom&&input.value&&input.value<state.insightFrom)state.insightFrom='';
@@ -107,7 +137,7 @@ listen(document,'change',ev=>{
  }
  if(input.dataset.trendFor){
   state.trendMetric=input.value;
-  const pane=input.closest('[data-pane="metrics"]');pane.innerHTML=postInsights(get('content',input.dataset.trendFor));return;
+  const pane=input.closest('[data-pane="metrics"]');pane.innerHTML=postInsights(get(input.dataset.trendBoard||'content',input.dataset.trendFor),input.dataset.trendBoard||'content');return;
  }
  if(input.name==='kind'&&input.closest('.format-select')){
   const details=input.closest('details');details.querySelector('#formatCurrent').textContent=input.value;details.open=false;details.querySelector('summary')?.focus();return;
@@ -117,9 +147,9 @@ listen(document,'change',ev=>{
  const form=input.closest('form[data-form^="money|"]');if(!form)return;
  if(input.name==='type'){
   const ledger=form.dataset.form.split('|')[2];
-  form.elements.category.innerHTML=option('Selecione uma categoria','')+categories(ledger,input.value).map(c=>option(c.name,c.id)).join('');
+  form.elements.category.innerHTML=categoryOptions(ledger,input.value);
  }
- if(input.name==='category'||input.name==='type')document.getElementById('salaryTip').classList.toggle('hide',form.elements.category.value!=='cat3');
+ if(input.name==='category'||input.name==='type'){document.getElementById('salaryTip').classList.toggle('hide',form.elements.category.value!=='cat3');updateInlineCategory(form);}
  if(['frequency','mode','count'].includes(input.name))recurrenceFields(form,input.name!=='frequency');
 });
 let boardDrag=null,suppressBoardClick=0;
@@ -157,7 +187,7 @@ function endBoardDrag(ev){
  if(!row||row.stage===drag.over.dataset.lane)return;
  const left=main.querySelector('.board-wrap')?.scrollLeft||0;
  row.stage=drag.over.dataset.lane;
- if(drag.k==='content'&&row.stage==='Publicado'&&!row.publishedDate)row.publishedDate=today;
+ if((drag.k==='content'||editorialBoard(drag.k))&&row.stage==='Publicado'&&!row.publishedDate)row.publishedDate=today;
  const isClose=drag.k==='crm'&&row.stage==='Fechado';
  if(isClose&&!row.closedOn)row.closedOn=today;
  if(drag.k==='crm')createProject(row);render();
@@ -173,17 +203,28 @@ listen(document,'submit',async ev=>{
  if(!operation)return;
  const disable=[...form.querySelectorAll('button[type="submit"]')];disable.forEach(x=>x.disabled=true);
  try{
+  await applyImageEdits(form,fd);
+  if(type==='follow-up')saveFollowUp(a,fd);
+  if(type==='service-config')saveService(a,fd);
+  if(type==='nav-area')saveNavArea(a,fd);
+  if(type==='nav-move'){modalClose(false);if(!moveNavModule(a,fd.get('navAreaChoice'),fd.get('before')))sidebar.querySelector('[data-nav-handle="'+a+'"]')?.focus()}
+  if(type==='wall')await saveWall(a,fd);
+  if(type==='goal'||type==='goal-item'||type==='goal-contribution')handleGoal(type,a,b,fd);
+  if(type==='prefs'){prefs().reminders=fd.get('reminders')==='on';prefs().reminderDays=Number(fd.get('reminderDays'));finish('Preferências salvas.');checkReminders()}
   if(type==='card')await addOrEditCard(a,b,fd,form);
-  if(type==='metrics')saveMetrics(a,fd);
+  if(type==='metrics')saveMetrics(a,fd,b||'content');
   if(type==='folder')saveFolder(a,fd);
   if(type==='client')await saveClient(a,fd);
   if(type==='profile')await saveProfile(fd);
   if(type==='task'||type==='event'){
    const key=type==='task'?'tasks':'events',existing=get(key,a),fields=Object.fromEntries(fd),name=clean(fields.name);
    if(!name)return;
+   if(type==='task')Object.assign(fields,savedClientFields(fd));
+   if(type==='event'&&fields.meeting&&!safeURL(fields.meeting)){toast('Informe um link válido para a reunião.');return}
+   if(type==='event'&&fields.end&&fields.end<=fields.time){toast('O término precisa ser posterior ao início.');return}
    if(existing)Object.assign(existing,fields,{name});else db[key].push({id:uid(),...fields,name});
    if(type==='event')state.day=fields.day;
-   go('home');if(persist())toast(type==='task'?'Tarefa salva.':'Compromisso salvo.');
+   go(type==='task'?'tasks':'agenda');if(persist())toast(type==='task'?'Tarefa salva.':'Compromisso salvo.');window.setTimeout(checkReminders,3700);
   }
   if(type==='cycle'){if(state.view!=='social')state.view='social';createCycle(fd)}
   if(type==='review'){
@@ -211,7 +252,7 @@ listen(document,'submit',async ev=>{
   if(type==='node')await updateNode(a,fd);
   if(type==='map-settings'){
    const m=activeMap(),name=clean(fd.get('name'));if(!name)return;
-   Object.assign(m,{name,client:clean(fd.get('client')),project:fd.get('project')});finish('Mapa atualizado.');
+   Object.assign(m,{name,...savedClientFields(fd),project:fd.get('project')});finish('Mapa atualizado.');
   }
   if(type==='map-template'){
    const m=activeMap(),name=clean(fd.get('name'));if(!name)return;
@@ -227,40 +268,26 @@ listen(document,'submit',async ev=>{
  }catch(error){console.error(error);toast('Não foi possível concluir esta ação.')}
  finally{disable.forEach(x=>x.disabled=false);operation();}
 });
+for(const k of Object.keys(db.serviceSettings))registerService(k);
+if(!db.preferences.serviceNavMigrated){db.preferences.navAreas=navigationAreas();db.preferences.serviceNavMigrated=true}
+initializeCategories();
 syncSalary();
 initializeFlowork();
 const entryView=location.hash.slice(1);
 if(nav.some(([k])=>k===entryView))state.view=entryView;
 render();
+const alertTimer=window.setInterval(checkReminders,60000);
+listen(window,'focus',checkReminders);
+services.signal.addEventListener('abort',()=>window.clearInterval(alertTimer),{once:true});
+window.setTimeout(()=>{if(!services.signal.aborted)checkReminders()},1800);
 const workspaceHandle={
   snapshot:()=>clone(db),
-  async archive(account, acceptances, requests){
-    const entries=[
-      ['conta.json',JSON.stringify({account,acceptances,requests},null,2)],
-      ['workspace.json',JSON.stringify(db,null,2)]
-    ];
-    const files=new Map();
-    for(const d of db.docs)if(d.kind==='Arquivo')files.set(d.id,d.name);
-    const add=(id,name)=>{if(id&&!files.has(id))files.set(id,name)};
-    for(const x of [db.profile,...db.clients])add(x.photo,'foto');
-    for(const x of [...db.idv,...db.social,...db.content]){
-      add(x.cover,'capa');
-      for(const img of asList(x.refImages))add(img.id,img.name);
-      for(const ref of asList(x.refs))add(ref.image,'miniatura');
-    }
-    for(const x of [...db.maps,...db.templates])for(const n of asList(x.nodes))add(n.image,'referencia-do-mapa');
-    for(const [id,name] of files){
-      const file=await fileStore('get',id);
-      const safe=String(name||'arquivo').replace(/[^a-zA-Z0-9._-]/g,'-').slice(0,90);
-      const extension={ 'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp','image/gif':'.gif','image/avif':'.avif' }[file.type]||'';
-      entries.push(['arquivos/'+id+'-'+safe+(safe.includes('.')?'':extension),new Uint8Array(await file.arrayBuffer())]);
-    }
-    return zip(entries);
-  },
+  archive:makeWorkspaceArchive,
+  readBackup:readWorkspaceBackup,
   clear(){
     clearTimeout(toastTimer);
     document.querySelectorAll('.card-ghost').forEach(card=>card.remove());
     modalClose(false);
-    for(const element of [sidebar,topbar,main,document.getElementById('toast')])element.replaceChildren();
+    for(const element of [assistantRoot,sidebar,topbar,main,document.getElementById('toast')].filter(Boolean))element.replaceChildren();
   }
 };

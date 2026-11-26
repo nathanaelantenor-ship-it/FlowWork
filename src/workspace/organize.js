@@ -16,7 +16,7 @@ function attachmentList(docs){
  return docs.map(d=>'<div class="attachment-row">'+icon(d.kind==='Documento'?'file':'folder')+'<span>'+esc(d.name)+'</span>'+button(d.kind==='Documento'?'Abrir':'Baixar',d.kind==='Documento'?'doc|'+d.id:'file-download|'+d.id,{ic:d.kind==='Documento'?'file':'download'})+'</div>').join('');
 }
 const sharingInput=(shared=false)=>'<label class="share-check wide"><input type="checkbox" name="shared" '+(shared?'checked':'')+'> Disponível na entrega e na visão do cliente</label>';
-const projectChoices=()=>[['Sem vínculo',''],...db.idv.map(x=>[x.name,x.id]),...db.social.map(x=>[x.client+' · '+x.name,x.id])];
+const projectChoices=()=>[['Sem vínculo',''],...workBoards().flatMap(k=>db[k].map(x=>[[x.client,x.name].filter(Boolean).join(' · '),x.id]))];
 function docDialog(ident='',project='',client=''){
  const d=get('docs',ident)||{}, file=d.id&&d.kind!=='Documento';
  const currentFolder=defaultFolder(project,client);
@@ -58,7 +58,7 @@ function renderMaps(){
  '<div class="map-shell"><div class="map-toolbar">'+newBtn('Bloco','new-node')+button('Conectar','connect-map',{ic:'link'})+button('Editar mapa','map-settings',{ic:'pen'})+button('Duplicar','map-copy',{ic:'copy'})+button('Salvar modelo','map-template',{ic:'layers'})+
  '<span class="spacer"></span>'+ib('minus','Diminuir zoom','map-zoom|-0.1')+'<span class="small">'+Math.round(z*100)+'%</span>'+ib('plus','Aumentar zoom','map-zoom|0.1')+ib('position','Restaurar zoom','map-zoom|reset')+'</div>'+
  '<div class="map-viewport" id="mapViewport" tabindex="0" aria-label="Área de trabalho do mapa"><div class="map-size" style="width:'+Math.round(1040*z)+'px;height:'+Math.round(610*z)+'px"><div class="map-world" style="transform:scale('+z+')"><svg class="map-links" viewBox="0 0 1040 610"></svg>'+
- map.nodes.map(n=>'<button type="button" class="map-node'+(!n.parent?' root':'')+'" data-node="'+esc(n.id)+'" data-act="node|'+esc(n.id)+'" style="left:'+Number(n.x)+'px;top:'+Number(n.y)+'px;--node:'+cleanColor(n.color)+';border-radius:'+mapShape(n.shape)+'px"><span>'+esc(n.title)+'</span>'+(n.text?'<small>'+esc(n.text)+'</small>':'')+(n.image?'<img alt="Referência visual" data-img="'+esc(n.image)+'" hidden>':'')+'</button>').join('')+
+ map.nodes.map(n=>'<button type="button" class="map-node'+(!n.parent?' root':'')+'" data-node="'+esc(n.id)+'" data-act="node|'+esc(n.id)+'" style="left:'+Number(n.x)+'px;top:'+Number(n.y)+'px;--node:'+cleanColor(n.color)+';border-radius:'+mapShape(n.shape)+'px"><span>'+esc(n.title)+'</span>'+(n.image?'<img alt="Referência visual" data-img="'+esc(n.image)+'" hidden>':'')+(n.text?'<small>'+esc(n.text)+'</small>':'')+'</button>').join('')+
  '</div></div></div></div><p class="small">Clique para editar · Arraste para mover · Shift + arraste move o ramo inteiro</p>';
 }
 async function fillMapImages(){
@@ -78,11 +78,11 @@ function drawMapLinks(){
 }
 function mapSettings(){
  const m=activeMap();
- modal('Editar mapa mental','<div class="form-grid">'+field('Título','name',m.name,'text','required')+field('Cliente','client',m.client)+select('Projeto','project',projectChoices(),m.project)+'</div>'+formEnd(),'map-settings');
+ modal('Editar mapa mental','<div class="form-grid">'+field('Título','name',m.name,'text','required')+clientPicker(m)+select('Projeto','project',projectChoices(),m.project)+'</div>'+formEnd(),'map-settings');
 }
 function newMapDialog(template='',project=''){
- const selected=db.templates[Number(template)], p=get('idv',project)||get('social',project);
- modal('Novo mapa mental','<div class="form-grid">'+field('Título','name',template!==''?selected?.name:'','text','required')+field('Cliente','client',p?.client)+select('Projeto','project',projectChoices(),project)+select('Modelo','template',[['Em branco',''],...db.templates.map((t,i)=>[t.name,String(i)])],template)+'</div>'+formEnd('Criar mapa'),'new-map');
+ const selected=db.templates[Number(template)], p=findWork(project);
+ modal('Novo mapa mental','<div class="form-grid">'+field('Título','name',template!==''?selected?.name:'','text','required')+clientPicker(p||{})+select('Projeto','project',projectChoices(),project)+select('Modelo','template',[['Em branco',''],...db.templates.map((t,i)=>[t.name,String(i)])],template)+'</div>'+formEnd('Criar mapa'),'new-map');
 }
 function saveNewMap(fd){
  const name=clean(fd.get('name'));if(!name)return;
@@ -92,7 +92,7 @@ function saveNewMap(fd){
  const nodes=[center];
  if(template?.nodes?.length){nodes.splice(0,1,...clone(template.nodes));const root=nodes.find(n=>!n.parent);if(root)root.title=name}
  else if(template){const layout=[[114,95],[121,348],[690,72],[707,225],[690,375]];template.branches.forEach((x,i)=>{const coord=layout[i]||[100+((i%5)*173),460+Math.floor(i/5)*55];nodes.push({id:uid(),parent:center.id,title:x,text:'',color:branchColors[i%5],shape:'round',x:coord[0],y:coord[1]})})}
- const m={id:uid(),name,client:clean(fd.get('client')),project:fd.get('project'),template:template?.name||'',nodes,edges:clone(template?.edges||[])};
+ const m={id:uid(),name,...savedClientFields(fd),project:fd.get('project'),template:template?.name||'',nodes,edges:clone(template?.edges||[])};
  db.maps.push(m);state.map=m.id;state.mapZoom=1;go('maps');if(persist())toast('Mapa criado.');
 }
 function nodeDialog(id=''){
@@ -103,7 +103,7 @@ function nodeDialog(id=''){
  const choices=[['Nenhum (bloco independente)',''],...m.nodes.filter(x=>x.id!==id&&!reachable.has(x.id)).map(x=>[x.title,x.id])];
  modal(n.title||'Novo bloco','<div class="form-grid">'+field('Título','title',n.title,'text','required')+field('Cor','color',n.color||'#a0b9f4','color')+area('Texto','text',n.text)+
  select('Forma','shape',[['Arredondada','round'],['Retangular','square'],['Pílula','pill']],n.shape||'round')+select('Conectar ao bloco','parent',choices,n.parent??m.nodes[0]?.id??'')+
- select('Imagem do acervo','image',[['Sem imagem',''],...imagelist],n.image||'')+'<label class="input-wrap">Nova imagem<input type="file" class="field" name="imageUpload" accept="image/*"></label></div>'+
+ select('Imagem do acervo','image',[['Sem imagem',''],...imagelist],n.image||'')+imageInput('Nova imagem','imageUpload')+'</div>'+
  formEnd('Salvar bloco',id&&n.parent?button('Excluir','delete-node|'+id,{ic:'trash',cls:'btn danger'}):''),'node|'+id);
 }
 function descendants(map,id){
@@ -116,7 +116,7 @@ async function updateNode(id,fd){
  const m=activeMap(),old=nodeBy(m,id);let image=fd.get('image')||'';
  const title=clean(fd.get('title')),file=fd.get('imageUpload');
  if(!title)return;
- if(file?.size){if(!file.type.startsWith('image/')){toast('Escolha um arquivo de imagem.');return}try{image=uid();await fileStore('put',image,file)}catch{toast('Não foi possível guardar a imagem.');return}}
+ if(file?.size){if(!file.type.startsWith('image/')){toast('Escolha um arquivo de imagem.');return}try{image=await storeImage(file)}catch{toast('Não foi possível guardar a imagem.');return}}
  const parent=fd.get('parent'),p=nodeBy(m,parent),x={id:id||uid(),title,text:clean(fd.get('text')),color:cleanColor(fd.get('color')),shape:fd.get('shape'),parent,image,x:old?.x??Math.min(860,(p?.x??250)+177),y:old?.y??Math.min(505,(p?.y??180)+70)};
  if(old)Object.assign(old,x);else m.nodes.push(x);finish('Bloco salvo.');
 }

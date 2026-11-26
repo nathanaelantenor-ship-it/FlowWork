@@ -88,6 +88,7 @@ export function renderAccount(user, status, requests = [], email = '') {
     '<div class="account-sync"><b>Salvamento</b><span data-account-sync>'+escape(status)+'</span></div>'+
     '<div class="account-actions"><button type="button" class="access-secondary" data-account="sync">Sincronizar agora</button>'+
     '<button type="button" class="access-secondary" data-account="export">Baixar meus dados (.zip)</button></div>'+
+    '<form class="account-request account-backup" data-account-form="verify-backup"><label class="access-field"><span>Verificar cópia de segurança do Flowork</span><input type="file" name="backup" accept=".zip,application/zip" required></label><button type="submit" class="access-secondary">Verificar ZIP</button></form>'+
     '<div class="account-conflict" data-account-conflict hidden><p>Há uma versão mais recente na nuvem. Baixe sua cópia antes de atualizar esta guia.</p>'+
     '<button type="button" class="access-secondary" data-account="backup">Baixar minhas alterações (.json)</button> '+
     '<button type="button" class="access-secondary" data-account="reload">Abrir versão da nuvem</button></div>'+

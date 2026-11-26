@@ -19,23 +19,23 @@ function donutPanel(title,list){
 }
 function renderFinance(){
  const rows=financeRows(),[income,spend]=financeTotals(rows);
- const buttons=exportsBtn()+button('Categorias','categories',{ic:'palette'})+newBtn('Lançamento','new-money');
+ const buttons=exportsBtn()+button('Diagnóstico','assistant-example|diagnostico',{ic:'chart'})+button('Categorias','categories',{ic:'palette'})+newBtn('Lançamento','new-money');
  return heading('Financeiro','Movimentações, parcelas e categorias.',buttons)+
  '<div class="filterbar">'+menu(['Empresa','Pessoal'],state.ledger==='empresa'?'Empresa':'Pessoal','ledger')+'<label>Período <input class="field" type="month" aria-label="Período financeiro" data-change="period" value="'+esc(state.period)+'"></label>'+menu(['Todos','Realizado','Previsto'],state.fstatus,'fstatus')+'</div>'+
  '<div class="summary-grid">'+[['Receitas',income],['Despesas',spend],['Saldo do período',income-spend]].map(([label,value])=>panel('<span class="stat-label">'+label+'</span><strong class="stat-value mono">'+brl(value)+'</strong>')).join('')+'</div>'+
- '<div class="finance-grid">'+donutPanel('Receitas por categoria',groupFinance(rows,'in'))+donutPanel('Despesas por categoria',groupFinance(rows,'out'))+'</div>'+
- renderTable(['Lançamento','Categoria','Data prevista','Baixa','Status','Valor'],rows.map(x=>{const cat=get('categories',x.category);return [rowButton(x.name,'money',x.id)+(x.mirror?' <span class="tag yellow">Pró-labore</span>':''),'<span class="inline" style="color:'+cleanColor(cat?.color)+'">'+icon(cat?.icon)+' '+esc(categoryName(x.category))+'</span>',shortDate(x.date),shortDate(x.paidDate),statusTag(x.status),'<span class="finance-amount '+(x.type==='in'?'positive':'')+'">'+(x.type==='in'?'+':'−')+brl(x.amount)+'</span>']}));
+ cashForecastPanel()+'<div class="finance-grid">'+donutPanel('Receitas por categoria',groupFinance(rows,'in'))+donutPanel('Despesas por categoria',groupFinance(rows,'out'))+'</div>'+
+ renderTable(['Lançamento','Categoria','Data prevista','Baixa','Status','Valor'],rows.map(x=>{const cat=get('categories',x.category);return [rowButton(x.name,'money',x.id)+(x.mirror?' <span class="tag yellow">Pró-labore</span>':x.client?' <small class="small">'+esc(x.client)+'</small>':''),'<span class="inline" style="color:'+cleanColor(cat?.color)+'">'+icon(cat?.icon)+' '+esc(categoryName(x.category))+'</span>',shortDate(x.date),shortDate(x.paidDate),statusTag(x.status),'<span class="finance-amount '+(x.type==='in'?'positive':'')+'">'+(x.type==='in'?'+':'−')+brl(x.amount)+'</span>']}));
 }
 function moneyDialog(id=''){
  const x=get('finance',id)||{};
  if(x.mirror){modal('Salário vinculado','<p class="small">Este registro veio de uma despesa de Pró-labore. Edite o lançamento de origem para atualizar o salário.</p><div class="dialog-actions">'+button('Abrir lançamento de origem','money|'+x.mirror,{ic:'link'})+'</div>');return}
  const ledger=x.ledger||state.ledger,type=x.type||'out';
  const card='<div class="form-grid">'+field('Descrição','name',x.name,'text','required')+select('Tipo','type',[['Receita','in'],['Despesa','out']],type)+
- select('Categoria','category',[['Selecione uma categoria',''],...categories(ledger,type).map(c=>[c.name,c.id])],x.category||'')+field('Valor '+(id?'(R$)':'total (R$)'),'amount',x.amount,'number','required min="0.01" step="0.01"')+
- field('Data prevista','date',x.date||today,'date','required')+select('Status','status',['Previsto','Realizado'],x.status||'Previsto')+field('Data de baixa','paidDate',x.paidDate,'date')+(ledger==='empresa'?field('Cliente ou projeto','client',x.client):'')+
+ '<label class="input-wrap">Categoria<select class="field" name="category" required>'+categoryOptions(ledger,type,x.category)+'</select></label>'+inlineCategoryFields()+field('Valor '+(id?'(R$)':'total (R$)'),'amount',x.amount,'number','required min="0.01" step="0.01"')+
+ field('Data prevista','date',x.date||today,'date','required')+select('Status','status',['Previsto','Realizado'],x.status||'Previsto')+field('Data de baixa','paidDate',x.paidDate,'date')+clientPicker(x)+select('Projeto','project',projectChoices(),x.project||'')+
  (id?(x.series?select('Aplicar a','scope',['Só este lançamento','Este e os próximos'],'Só este lançamento'):''):select('Frequência','frequency',['Único','Recorrente','Parcelado'],'Único')+'<div id="seriesFields" class="wide"></div>')+'</div>'+
  '<div id="salaryTip" class="callout'+(isSalary({...x,ledger,type})?'':' hide')+'">Essa despesa vai gerar uma receita de Salário na aba Pessoal.</div>';
- modal(x.id?'Editar lançamento':'Novo lançamento · '+(ledger==='empresa'?'Empresa':'Pessoal'),card+formEnd('Salvar',x.id?button('Excluir','money-delete|'+x.id,{ic:'trash',cls:'btn danger'}):''),'money|'+(x.id||'')+'|'+ledger);
+ modal(x.id?'Editar lançamento':'Novo lançamento · '+(ledger==='empresa'?'Empresa':'Pessoal'),card+formEnd('Salvar',(x.id&&x.status!=='Realizado'?button(x.type==='in'?'Marcar como recebido':'Marcar como pago','paid-now|'+x.id,{ic:'check'}):'')+(x.id&&!x.sourceProject?button('Excluir','money-delete|'+x.id,{ic:'trash',cls:'btn danger'}):'')),'money|'+(x.id||'')+'|'+ledger);
 }
 function recurrenceFields(form,preserve=false){
  const holder=form.querySelector('#seriesFields');if(!holder)return;
@@ -46,7 +46,7 @@ function recurrenceFields(form,preserve=false){
  const when=preserve?form.elements.interval?.value:'Mensal';
  const end=preserve?form.elements.end?.value:'';
  const dates=Array.from(form.querySelectorAll('[name="customDate"]'),x=>x.value);
- if(freq==='Recorrente'){holder.innerHTML='<div class="form-grid">'+select('Intervalo','interval',['Semanal','Quinzenal','Mensal','Anual'],when)+field('Última data (opcional)','end',end,'date')+'</div><p class="small">Para testar no beta, uma série sem data final gera as próximas 12 ocorrências.</p>';return}
+ if(freq==='Recorrente'){holder.innerHTML='<div class="form-grid">'+select('Intervalo','interval',['Semanal','Quinzenal','Mensal','Anual'],when)+field('Última data (opcional)','end',end,'date')+'</div><p class="small">Sem data final, são geradas as próximas 12 ocorrências.</p>';return}
  holder.innerHTML='<div class="form-grid">'+field('Quantidade de parcelas','count',n,'number','required min="2" max="36" step="1"')+select('Datas das parcelas','mode',['Mensal no mesmo dia','Escolher cada data'],mode)+(mode==='Escolher cada data'?Array.from({length:n},(_,i)=>field('Parcela '+(i+1),'customDate',dates[i]||addMonths(form.elements.date.value||today,i),'date','required')).join(''):'')+'</div>';
 }
 function addMonths(date,n){
@@ -56,15 +56,18 @@ function addMonths(date,n){
 }
 function addDays(date,n){const dt=new Date(date+'T00:00:00Z');dt.setUTCDate(dt.getUTCDate()+n);return dt.toISOString().slice(0,10)}
 function moneyUpdate(id,ledger,fd){
- const old=get('finance',id);
- const name=clean(fd.get('name')),amount=Number(fd.get('amount')),date=fd.get('date'),type=fd.get('type'),cat=fd.get('category'),status=fd.get('status');
+ const old=get('finance',id), created=[];
+ const name=clean(fd.get('name')),amount=Number(fd.get('amount')),date=fd.get('date'),type=old?.sourceProject?'in':fd.get('type'),status=fd.get('status');
+ let cat=fd.get('category');
+ if(cat==='new'){cat=inlineCategorySave(fd,ledger,type);if(!cat){toast('Informe um nome de categoria válido.');return}}
  if(!name||!Number.isFinite(amount)||amount<=0||!date||!categories(ledger,type).some(x=>x.id===cat)){toast('Preencha nome, valor, data e categoria.');return}
- const base={name,ledger,type,category:cat,amount,date,status,paidDate:status==='Realizado'?(fd.get('paidDate')||date):'',client:clean(fd.get('client'))};
+ const base={name,ledger,type,category:cat,amount,date,status,paidDate:status==='Realizado'?(fd.get('paidDate')||date):'',...savedClientFields(fd),project:old?.sourceProject||fd.get('project')||''};
+ if(!base.clientId&&base.project){const p=findWork(base.project);if(p){base.client=p.client;base.clientId=p.clientId}}
  if(old){
   const apply=fd.get('scope')==='Este e os próximos'&&old.series;
   const delta=Math.round((new Date(date)-new Date(old.date))/86400000);
   const related=apply?db.finance.filter(x=>!x.mirror&&x.series===old.series&&x.id!==old.id&&x.sequence>old.sequence):[];
-  related.forEach(x=>{const updatedDate=addDays(x.date,delta);Object.assign(x,{name,type,category:cat,amount,client:base.client,date:updatedDate})});
+  related.forEach(x=>{const updatedDate=addDays(x.date,delta);Object.assign(x,{name,type,category:cat,amount,client:base.client,clientId:base.clientId,project:base.project,date:updatedDate})});
   Object.assign(old,base);
  }else{
   const freq=fd.get('frequency')||'Único';let dates=[date];
@@ -73,24 +76,26 @@ function moneyUpdate(id,ledger,fd){
    const end=fd.get('end'),interval=fd.get('interval'), limit=end?240:12;
    if(end&&end<date){toast('O fim da recorrência deve ser igual ou posterior à primeira data.');return}
    const projectDate=i=>interval==='Semanal'?addDays(date,i*7):interval==='Quinzenal'?addDays(date,i*14):addMonths(date,i*(interval==='Anual'?12:1));
-   if(end&&projectDate(limit)<=end){toast('Neste beta, use até 240 ocorrências por série.');return}
+   if(end&&projectDate(limit)<=end){toast('Use até 240 ocorrências por série.');return}
    dates=Array.from({length:limit},(_,i)=>projectDate(i)).filter(d=>!end||d<=end);
   }
   if(!dates.length||dates.some(d=>!d)){toast('Confira as datas de cada parcela.');return}
   const series=dates.length>1?uid():'';const cents=Math.round(amount*100);
   if(freq==='Parcelado'&&cents<dates.length){toast('O valor total deve cobrir pelo menos um centavo por parcela.');return}
   dates.forEach((d,i)=>{const part=freq==='Parcelado'?(Math.floor(cents/dates.length)+(i<cents%dates.length?1:0))/100:amount;
-   const future=dates.length>1&&i>0;db.finance.push({...base,id:uid(),series,sequence:i,frequency:freq,date:d,amount:part,name:freq==='Parcelado'?name+' · '+(i+1)+'/'+dates.length:name,status:future?'Previsto':status,paidDate:future||status!=='Realizado'?'':(fd.get('paidDate')||d)});
+   const future=dates.length>1&&i>0;created.push({...base,id:uid(),series,sequence:i,frequency:freq,date:d,amount:part,name:freq==='Parcelado'?name+' · '+(i+1)+'/'+dates.length:name,status:future?'Previsto':status,paidDate:future||status!=='Realizado'?'':(fd.get('paidDate')||d)});
   });
  }
+ db.finance.push(...created);
  syncSalary();state.ledger=ledger;state.period=(fd.get('paidDate')&&status==='Realizado'?fd.get('paidDate'):fd.get('mode')==='Escolher cada data'?fd.getAll('customDate')[0]||date:date).slice(0,7);state.fstatus='Todos';finish('Lançamento salvo.');
+ return old?[old]:created;
 }
 function categoryList(){
  modal('Categorias · '+(state.ledger==='empresa'?'Empresa':'Pessoal'),['in','out'].map(type=>'<h3>'+(type==='in'?'Receitas':'Despesas')+'</h3>'+categories(state.ledger,type).map(c=>'<div class="attachment-row" style="color:'+cleanColor(c.color)+'">'+icon(c.icon)+'<span>'+esc(c.name)+'</span>'+button('Editar','edit-cat|'+c.id,{ic:'pen'})+'</div>').join('')).join('')+'<div class="dialog-actions">'+newBtn('Nova categoria','edit-cat')+'</div>');
 }
 function categoryDialog(id=''){
  const c=get('categories',id)||{};
- const icons=[['Financeiro','wallet'],['Casa','home'],['Trabalho','brief'],['Pastas','folder'],['Design','pen'],['Conteúdo','layers'],['Estudos','book'],['Calendário','calendar'],['Receita','plus'],['Meta','target']];
+ const icons=categoryIcons;
  modal(c.id?'Editar categoria':'Nova categoria','<div class="form-grid">'+(c.id==='cat3'||c.id==='cat6'?'<div class="callout wide">'+esc(c.name)+' é uma categoria vinculada ao fluxo de pró-labore.</div>':'')+
  field('Nome','name',c.name,'text','required '+((c.id==='cat3'||c.id==='cat6')?'readonly':''))+select('Tipo','type',[['Receita','in'],['Despesa','out']],c.type)+field('Cor','color',c.color||'#a0b9f4','color')+select('Ícone','icon',icons,c.icon)+'</div>'+formEnd('Salvar'),'category|'+id);
 }

@@ -133,7 +133,7 @@ export function startApplication(client) {
     workspace = mountWorkspace({
       displayName: typeof name === 'string' ? name.slice(0, 100) : 'Flowork',
       file: store.file, sync, signal: mountAbort.signal,
-      openAccount, refreshStatus, startOperation: beginOperation
+      openAccount, logout, refreshStatus, startOperation: beginOperation
     }, snapshot.workspace?.data);
   }
 
@@ -310,6 +310,8 @@ export function startApplication(client) {
         } else accountMessage('Cópia preparada.');
       }
       if (action === 'export') {
+        await Promise.allSettled([...operations]);
+        if(workspace!==jobWorkspace||current?.user.id!==ownerAtStart)return;
         const account = { id:current.user.id, email:current.user.email, created_at:current.user.created_at };
         const blob = await jobWorkspace.archive(account, current.snapshot.acceptances, await privacyRequests(client));
         if (workspace === jobWorkspace) { attachDownload('flowork-meus-dados.zip',blob); accountMessage('Exportação preparada.'); }
@@ -320,6 +322,23 @@ export function startApplication(client) {
 
   document.addEventListener('submit', async event => {
     const form = event.target;
+    if (form.dataset.accountForm === 'verify-backup') {
+      event.preventDefault();
+      if (accountBusy || !current || !workspace) return;
+      const job=workspace, submit=event.submitter;
+      accountBusy=true;
+      if(submit)submit.disabled=true;
+      accountMessage('Verificando o arquivo neste navegador…');
+      try {
+        const verified=await job.readBackup(new FormData(form).get('backup'));
+        if(workspace!==job)return;
+        if(verified.identity.account?.id!==current.user.id){accountMessage('Esta cópia pertence a outra conta.');return}
+        accountMessage('Cópia íntegra. Registros e '+verified.attachments.size+' anexo(s) conferidos. Seus dados atuais foram preservados.');
+      } catch {
+        if(workspace===job)accountMessage('Não foi possível verificar a cópia. Confira se o ZIP é uma exportação completa do Flowork.');
+      } finally {accountBusy=false;if(submit)submit.disabled=false}
+      return;
+    }
     if (form.dataset.accountForm === 'privacy') {
       event.preventDefault();
       if (accountBusy || !current) return;

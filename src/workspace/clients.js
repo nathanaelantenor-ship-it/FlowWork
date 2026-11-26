@@ -2,7 +2,7 @@ const clientColors=['#b0bde4','#dcac93','#b2bd91','#c9aedb','#e0cc83','#a1b9c2']
 const normalizedName=name=>clean(name).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/\s+/g,' ');
 const findClient=name=>db.clients.find(c=>normalizedName(c.name)===normalizedName(name));
 const statusOptions=['Em onboarding','Ativo','Pausado','Concluído'];
-const clientProjects=c=>['idv','social'].flatMap(k=>db[k].filter(x=>x.clientId===c.id||(!x.clientId&&normalizedName(x.client)===normalizedName(c.name))).map(x=>[k,x]));
+const clientProjects=c=>workBoards().flatMap(k=>db[k].filter(x=>x.clientId===c.id||(!x.clientId&&normalizedName(x.client)===normalizedName(c.name))).map(x=>[k,x]));
 const profileName=()=>db.profile?.name||'Nathan Cardoso';
 const profileMeta=()=>db.profile?.role||'Workspace pessoal';
 const avatar=(item,cls='avatar')=>'<span class="'+cls+'" style="--avatar-tint:'+cleanColor(item.color,'#dce3ed')+'">'+esc(idFor(item.name)||'FW')+localImage(item.photo,'')+'</span>';
@@ -26,7 +26,7 @@ function ensureClientOnClose(lead){
  lead.clientId=c.id;
  lead.closedOn=lead.closedOn||lead.date||today;
  if(lead.project){
-  const p=get('idv',lead.project)||get('social',lead.project);
+  const p=findWork(lead.project);
   if(p){p.clientId=c.id;p.folder=p.folder||folder.id}
  }
  return c;
@@ -131,7 +131,7 @@ function saveFolder(id,fd){
  finish('Pasta salva.');
 }
 function defaultFolder(project,client){
- const record=get('idv',project)||get('social',project);
+ const record=findWork(project);
  return record?.folder||findClient(client||record?.client)?.folder||state.folder||'';
 }
 function activeDocRows(all=false){

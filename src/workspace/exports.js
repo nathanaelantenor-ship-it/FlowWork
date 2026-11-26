@@ -105,6 +105,12 @@ async function mapPdf(m){
  return pdfDocument([{width:842,height:595,content:'0.09 0.12 0.18 rg\n'+pdfLine(40,555,24,m.name,true)+pdfLine(40,535,10,'Flowork · Mapa mental')+'q 762 0 0 447 40 61 cm /Im Do Q\n',image:{width:canvas.width,height:canvas.height,data:new Uint8Array(await jpeg.arrayBuffer())}}]);
 }
 function reportData(view,all=false){
+ if(view==='services')return [['Serviços',[['Serviço','Projetos','Etapas'],...workBoards().map(k=>[navName(k),db[k].length,definitions[k].labels.join(', ')])]]];
+ if(view==='projects')return [['Projetos',[['Projeto','Cliente','Serviço','Etapa','Entrega','Valor','Recebimento'],...projectRecords().map(([k,x])=>[x.name,x.client,navName(k),x.stage,x.date,x.amount,x.paymentDue])]]];
+ if(view==='tasks')return [['Tarefas',[['Tarefa','Cliente','Data','Horário','Status'],...db.tasks.map(x=>[x.name,x.client,x.date,x.time,x.done?'Concluída':'Pendente'])]]];
+ if(view==='agenda')return [['Agenda',[['Compromisso','Data','Início','Término','Vínculo','Reunião'],...db.events.filter(x=>all||x.day.startsWith(state.day.slice(0,7))).map(x=>[x.name,x.day,x.time,x.end,meetingParty(x),x.meeting])]]];
+ if(view==='goals')return [['Metas',[['Meta','Valor-alvo','Avanço','Percentual'],...db.goals.map(x=>[x.name,x.target,goalProgress(x),goalPercent(x)+'%'])]],['Itens',[['Meta','Item','Valor','Status','Link'],...db.goals.flatMap(x=>asList(x.items).map(i=>[x.name,i.name,i.amount,i.done?'Concluído':'Pendente',i.link]))]],['Aportes',[['Meta','Descrição','Valor','Data'],...db.goals.flatMap(x=>asList(x.contributions).map(i=>[x.name,i.name,i.amount,i.date]))]]];
+ if(view==='settings')return [['Preferências',[['Ajuste','Valor'],...Object.entries(db.preferences).filter(([name])=>!name.endsWith('Photo'))]]];
  if(view==='home')return [['Prioridades',[['Tarefa','Área','Hora','Status'],...db.tasks.map(x=>[x.name,x.meta,x.time,x.done?'Concluída':'Pendente'])]],['Agenda',[['Compromisso','Data','Hora'],...db.events.filter(e=>all||e.day===state.day).map(x=>[x.name,x.day,x.time])]]];
  if(view==='files'){
   const docRows=activeDocRows(all), folders=db.folders.filter(f=>all||(f.parent||'')===state.folder||f.id===state.folder);
@@ -141,6 +147,7 @@ function reportData(view,all=false){
   return [['Mapa',[['Título','Bloco pai','Texto','Cor','Forma','Imagem'],...current.nodes.map(n=>[n.title,nodeBy(current,n.parent)?.title,n.text,n.color,n.shape,n.image?'Sim':'Não'])]]];
  }
  let rows=all?db[view]:activeRows(view);
+ if(serviceBoard(view)&&state.boardView[view]==='Insights'&&!all){const metrics=workMetricFields(view);return [['Indicadores',[['Nome','Cliente',...metrics.map(([,label])=>label)],...rows.map(x=>[x.name,x.client,...metrics.map(([k])=>latestMetrics(x,'',view)[k])])]]];}
  if(!all&&view==='social'&&state.boardView.social==='Entrega')rows=rows.filter(x=>['Aprovado','Entregue'].includes(x.stage));
  if(!all&&view==='content'&&state.boardView.content==='Calendário')rows=rows.filter(x=>(publishedOn(x)||x.date)?.startsWith(state.contentMonth));
  const extra={crm:[['Origem','origin'],['Canal','kind'],['Valor (R$)','amount']],idv:[['Aprovação','approval']],social:[['Ciclo','cycle'],['Formato','kind'],['Legenda','caption'],['Versão','version'],['Referências','refLinks']],content:[['Formato','kind'],['Publicado em','published'],['Referências','refLinks']],study:[['Tema','kind'],['Etapas concluídas','steps']]}[view]||[];

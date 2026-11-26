@@ -14,8 +14,8 @@ const icoPaths={
 };
 const icon=(name)=>'<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="'+(icoPaths[name]||icoPaths.dot)+'"></path></svg>';
 const nav=[
- ['home','home','Hoje'],['crm','columns','Comercial'],['clients','users','Clientes'],['idv','pen','Identidade Visual'],['social','layers','Mídias Sociais'],['content','play','Meu Conteúdo'],
- ['study','book','Estudos'],['files','folder','Documentos'],['maps','map','Mapas Mentais'],['finance','wallet','Financeiro']
+ ['home','home','Home'],['crm','columns','Comercial'],['clients','users','Clientes'],['idv','pen','Identidade Visual'],['social','layers','Mídias Sociais'],['services','plus','Adicionar serviço'],['content','play','Meu Conteúdo'],
+ ['projects','brief','Projetos'],['tasks','check','Tarefas'],['agenda','calendar','Agenda'],['goals','target','Metas'],['settings','palette','Configurações'],['study','book','Estudos'],['files','folder','Documentos'],['maps','map','Mapas Mentais'],['finance','wallet','Financeiro']
 ];
 const navName=k=>nav.find(x=>x[0]===k)?.[2]||'Hoje';
 const definitions={
@@ -28,7 +28,7 @@ const definitions={
 const today=new Date().toLocaleDateString('sv-SE',{timeZone:'America/Sao_Paulo'});
 const clone=x=>JSON.parse(JSON.stringify(x));
 const starter={
-  tasks:[],events:[],crm:[],idv:[],social:[],content:[],study:[],docs:[],finance:[],maps:[],clients:[],folders:[],
+  tasks:[],events:[],goals:[],preferences:{},crm:[],idv:[],social:[],content:[],study:[],docs:[],finance:[],maps:[],clients:[],folders:[],
   categories:[
  {id:'cat1',ledger:'empresa',type:'in',name:'Identidade Visual',color:'#edff45',icon:'pen'},
  {id:'cat2',ledger:'empresa',type:'in',name:'Mídias Sociais',color:'#90aef0',icon:'layers'},
@@ -49,9 +49,10 @@ const starter={
 const db=savedWorkspace?clone(savedWorkspace):{
  ...clone(starter),profile:{name:services.displayName,role:'Workspace pessoal'}
 };
+db.goals ||= []; db.preferences ||= {};
 const state={view:'home',boardView:{idv:'Kanban',social:'Kanban',content:'Kanban',study:'Trilhas',crm:'Kanban'},day:today,ledger:'empresa',period:today.slice(0,7),fstatus:'Todos',client:db.social[0]?.client||'',cycle:today.slice(0,7),map:'',mapZoom:1,folder:'',clientStatus:'Todos',insightFrom:'',insightTo:'',insightFormat:'',rankMetric:'leads',trendMetric:'views',contentMonth:today.slice(0,7),kindFilter:'Todas',crmFilter:'',mobile:false};
 const get=(k,id)=>db[k]?.find(x=>x.id===id);
-const uid=()=>crypto.randomUUID();
+const uid=()=>globalThis.crypto?.randomUUID?.() || 'fw-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
 const clean=v=>String(v??'').trim();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const brl=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});

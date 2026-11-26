@@ -124,41 +124,42 @@ function contentEditor(x,body,sections,content,k){
  if(content)tabs.push(['metrics','Insights','chart']);
  return '<div class="switcher editor-tabs">'+tabs.map(([k,label,ic],i)=>button(label,'content-tab|'+k,{cls:'chip'+(i===0?' active':''),ic,extra:'data-content-tab="'+k+'" aria-pressed="'+(i===0)+'"'})).join('')+'</div>'+
  '<div data-pane="details"><div class="form-grid">'+body+'</div>'+sections+'</div><div data-pane="references" hidden>' +resourceFields(x,k)+'</div>'+
- (content?'<div data-pane="metrics" hidden>'+postInsights(x)+'</div>':'');
+ (content?'<div data-pane="metrics" hidden>'+postInsights(x,k)+'</div>':'');
 }
 
 const metricFields=[['views','Visualizações'],['reach','Alcance'],['likes','Curtidas'],['followers','Novos seguidores'],['shares','Compartilhamentos'],['saves','Salvamentos'],['leads','Leads']];
 const metricLabel=key=>metricFields.find(([x])=>x===key)?.[1]||'Leads';
 const fmtCount=n=>n===undefined||n===null?'—':n.toLocaleString('pt-BR');
 function publishedOn(x){return x.publishedDate||(x.stage==='Publicado'?x.date:'')||''}
-function postHistory(x){
+function postHistory(x,k='content'){
  if(Array.isArray(x.metrics))return x.metrics.slice().sort((a,b)=>a.date.localeCompare(b.date));
  const on=publishedOn(x);
- const values=Object.fromEntries(metricFields.filter(([key])=>Number.isFinite(x[key])).map(([key])=>[key,x[key]]));
+ const values=Object.fromEntries(workMetricFields(k).filter(([key])=>Number.isFinite(x[key])).map(([key])=>[key,x[key]]));
  return on&&Object.keys(values).length?[{date:on,...values}]:[];
 }
-function latestMetrics(x,until=''){
- const history=postHistory(x).filter(row=>!until||row.date<=until);
- return Object.fromEntries(metricFields.flatMap(([key])=>{
+function latestMetrics(x,until='',k='content'){
+ const history=postHistory(x,k).filter(row=>!until||row.date<=until);
+ return Object.fromEntries(workMetricFields(k).flatMap(([key])=>{
   const value=history.findLast(row=>Number.isFinite(row[key]));
   return value?[[key,value[key]]]:[];
  }));
 }
-function metricEditor(id,date=''){
- const x=get('content',id);if(!x)return;
- const existing=postHistory(x).find(s=>s.date===date), published=publishedOn(x);
+function metricEditor(id,date='',k='content'){
+ const x=get(k,id);if(!x)return;
+ const existing=postHistory(x,k).find(s=>s.date===date), published=publishedOn(x);
  if(!published){toast('Informe a data da publicação nos detalhes do conteúdo.');return}
  modal(existing?'Editar métricas':'Registrar métricas','<p class="small">'+esc(x.name)+' · informe os contadores acumulados na data da atualização.</p><div class="form-grid">'+
  field('Data da atualização','date',existing?.date||(today>published?today:published),'date','required min="'+esc(published)+'" '+(date?'readonly':''))+
- metricFields.map(([key,label])=>field(label,key,existing?.[key]??'','number','min="0" step="1"')).join('')+
- '</div>'+formEnd('Salvar métricas',button('Voltar ao conteúdo','post-insights|'+id,{ic:'prev',cls:'btn ghost'})),'metrics|'+id,true);
+ workMetricFields(k).map(([key,label])=>field(label,key,existing?.[key]??'','number','min="0" step="1"')).join('')+
+ '</div>'+formEnd('Salvar métricas',button('Voltar ao conteúdo','post-insights|'+id+'|'+k,{ic:'prev',cls:'btn ghost'})),'metrics|'+id+'|'+k,true);
 }
-function saveMetrics(id,fd){
- const x=get('content',id);const date=fd.get('date'), published=publishedOn(x), history=postHistory(x);
+function saveMetrics(id,fd,k='content'){
+ const x=get(k,id);if(!x)return;
+ const date=fd.get('date'), published=publishedOn(x), history=postHistory(x,k);
  if(!published||!date||date<published){toast('Use uma data igual ou posterior à publicação.');return}
  const found=history.find(row=>row.date===date);
  const update={date};
- for(const [key] of metricFields){
+ for(const [key] of workMetricFields(k)){
   const value=fd.get(key);
   if(value===''){if(Number.isFinite(found?.[key]))update[key]=found[key];continue}
   const count=Number(value);if(!Number.isSafeInteger(count)||count<0){toast('Use números inteiros positivos ou zero.');return}
@@ -166,9 +167,9 @@ function saveMetrics(id,fd){
  }
  if(Object.keys(update).length===1){toast('Preencha pelo menos uma métrica.');return}
  x.metrics=history.filter(row=>row.date!==date).concat(update).sort((a,b)=>a.date.localeCompare(b.date));
- finish('Métricas atualizadas.');openPostInsights(id);
+ finish('Métricas atualizadas.');openPostInsights(id,k);
 }
-function openPostInsights(id){cardDialog('content',id);contentTab('metrics')}
+function openPostInsights(id,k='content'){cardDialog(k,id);contentTab('metrics')}
 function metricTiles(values,fields=metricFields){
  return '<div class="metric-tiles">'+fields.map(([key,label])=>'<div class="metric-tile"><span>'+label+'</span><b>'+fmtCount(values[key])+'</b></div>').join('')+'</div>';
 }
@@ -181,14 +182,14 @@ function seriesChart(points,caption,asFrequency=false){
  const path=coordinates.map(([x,y])=>x.toFixed(1)+','+y.toFixed(1)).join(' ');
  return '<div class="metric-trend"><svg viewBox="0 0 '+W+' '+H+'" aria-label="'+esc(caption)+'" role="img"><path d="M'+pad+' '+(H-pad)+'H'+(W-pad)+' M'+pad+' '+Math.round(H/2)+'H'+(W-pad)+'" class="trend-grid"/><polyline points="'+path+'"/>'+coordinates.map(([x,y],i)=>'<circle cx="'+x+'" cy="'+y+'" r="4"><title>'+esc(points[i].label)+': '+fmtCount(points[i].value)+'</title></circle>').join('')+'</svg><div class="trend-labels">'+points.map(p=>'<span title="'+fmtCount(p.value)+'">'+esc(p.label)+'</span>').join('')+'</div></div>';
 }
-function postInsights(x){
+function postInsights(x,k='content'){
  if(!x.id)return empty('Salve o conteúdo com a data da publicação para registrar métricas.');
- const pub=publishedOn(x),history=postHistory(x),values=latestMetrics(x);
- const selected=state.trendMetric, common=history.filter(p=>Number.isFinite(p[selected]));
- return '<div class="resource-head"><div><h3>Desempenho da publicação</h3><p class="small">'+(pub?'Publicado em '+esc(shortDate(pub)+ '/'+pub.slice(0,4)):'Preencha a data da publicação em Detalhes.')+'</p></div>'+(pub?newBtn('Registrar métricas','metric-edit|'+x.id):'')+'</div>'+
- metricTiles(values)+
- (history.length?'<div class="insight-chart panel"><div class="panel-head"><h2>Evolução</h2><select class="field" data-trend-for="'+esc(x.id)+'" aria-label="Métrica da evolução">'+metricFields.map(([key,label])=>option(label,key,selected)).join('')+'</select></div>'+seriesChart(common.map(row=>({label:shortDate(row.date),value:row[selected]})),metricLabel(selected))+'</div>'+
- '<h3>Histórico de atualizações</h3>'+renderTable(['Atualização',...metricFields.map(([,label])=>label)],history.slice().reverse().map(row=>[button(shortDate(row.date)+'/'+row.date.slice(0,4),'metric-edit|'+x.id+'|'+row.date,{cls:'text-button'}),...metricFields.map(([key])=>fmtCount(row[key]))])):empty('Nenhuma atualização registrada ainda.'));
+ const fields=workMetricFields(k), pub=publishedOn(x),history=postHistory(x,k),values=latestMetrics(x,'',k);
+ const selected=fields.some(([key])=>key===state.trendMetric)?state.trendMetric:fields[0][0], common=history.filter(p=>Number.isFinite(p[selected]));
+ return '<div class="resource-head"><div><h3>Desempenho da publicação</h3><p class="small">'+(pub?'Publicado em '+esc(shortDate(pub)+ '/'+pub.slice(0,4)):'Preencha a data da publicação em Detalhes.')+'</p></div>'+(pub?newBtn('Registrar métricas','metric-edit|'+x.id+'||'+k):'')+'</div>'+
+ metricTiles(values,fields)+
+ (history.length?'<div class="insight-chart panel"><div class="panel-head"><h2>Evolução</h2><select class="field" data-trend-for="'+esc(x.id)+'" data-trend-board="'+esc(k)+'" aria-label="Métrica da evolução">'+fields.map(([key,label])=>option(label,key,selected)).join('')+'</select></div>'+seriesChart(common.map(row=>({label:shortDate(row.date),value:row[selected]})),fields.find(([key])=>key===selected)[1])+'</div>'+
+ '<h3>Histórico de atualizações</h3>'+renderTable(['Atualização',...fields.map(([,label])=>label)],history.slice().reverse().map(row=>[button(shortDate(row.date)+'/'+row.date.slice(0,4),'metric-edit|'+x.id+'|'+row.date+'|'+k,{cls:'text-button'}),...fields.map(([key])=>fmtCount(row[key]))])):empty('Nenhuma atualização registrada ainda.'));
 }
 function insightRecords(all=false){
  const {insightFrom:from,insightTo:to,insightFormat:format}=state;

@@ -39,13 +39,29 @@ function render(){
  if(state.view==='maps'&&state.map){drawMapLinks();fillMapImages()}
 }
 function progress(k,p){return Math.round(Math.min(1,asList(p.done).length/Math.max(1,(checklists[k]||[]).length))*100)}
-const activeSocial=()=>db.social.filter(x=>x.client===state.client&&x.cycle===state.cycle);
+const socialCycleOnly=()=>!state.allSocialCycles||state.boardView.social==='Calendário';
+const socialClientDelivery=()=>Boolean(state.client&&!state.allSocialCycles);
+function activeSocial(){
+ return db.social.filter(x=>(!state.client||x.client===state.client)&&
+  (!socialCycleOnly()||(x.cycle||x.date?.slice(0,7))===state.cycle)&&
+  (state.boardView.social==='Entrega'||!state.socialPending||x.stage!=='Entregue'));
+}
+function socialFilters(view){
+ const clients=[...new Set(db.social.map(x=>x.client).concat(db.clients.map(x=>x.name),state.client))]
+  .filter(Boolean).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+ return '<label class="input-wrap">Cliente<select class="field" data-change="client">'+
+  option('Todos os clientes','',state.client)+clients.map(x=>option(x,x,state.client)).join('')+'</select></label>'+
+  (view==='Calendário'||!state.allSocialCycles?'<label class="input-wrap">Ciclo<input class="field" type="month" aria-label="Ciclo de mídias sociais" data-change="cycle" value="'+esc(state.cycle)+'"></label>':'')+
+  (view!=='Calendário'?'<label class="share-check"><input type="checkbox" data-change="allSocialCycles" '+(state.allSocialCycles?'checked':'')+'> Todos os ciclos</label>':'')+
+  (view!=='Entrega'?'<label class="share-check"><input type="checkbox" data-change="socialPending" '+(state.socialPending?'checked':'')+'> Só em aberto</label>':'')+
+  button('Novo ciclo','new-cycle',{ic:'repeat'})+(state.client&&socialCycleOnly()?button('Visão do cliente','client-view',{ic:'eye',cls:'btn ghost'}):'');
+}
 const activeRows=k=>k==='social'?activeSocial():k==='crm'&&state.crmFilter?db.crm.filter(x=>state.crmFilter.split(',').includes(x.stage)):db[k];
 const rowButton=(title,k,id)=>button(title,'open|'+k+'|'+id,{cls:'text-button'});
 function renderBoardPage(k){
  const config=definitions[k], view=state.boardView[k];
  const available=insightBoard(k)?['Kanban','Calendário','Insights']:k==='social'?['Kanban','Calendário','Entrega']:k==='content'?['Kanban','Calendário','Insights']:k==='study'?['Trilhas','Kanban']:['Kanban','Lista'];
- const filters=k==='social'?'<label>Cliente <select class="field" data-change="client">'+[...new Set(db.social.map(x=>x.client).concat(state.client))].sort().map(x=>option(x,x,state.client)).join('')+'</select></label><label>Ciclo <input class="field" type="month" aria-label="Ciclo de mídias sociais" data-change="cycle" value="'+esc(state.cycle)+'"></label>'+button('Novo ciclo','new-cycle',{ic:'repeat'})+button('Visão do cliente','client-view',{ic:'eye',cls:'btn ghost'}):k==='crm'&&state.crmFilter?button('Limpar filtro','crm-filter|',{ic:'x'}):(k==='content'||serviceBoard(k))&&view==='Calendário'?'<label>Mês <input class="field" type="month" data-change="contentMonth" value="'+esc(state.contentMonth)+'"></label>':'';
+ const filters=k==='social'?socialFilters(view):k==='crm'&&state.crmFilter?button('Limpar filtro','crm-filter|',{ic:'x'}):(k==='content'||serviceBoard(k))&&view==='Calendário'?'<label>Mês <input class="field" type="month" data-change="contentMonth" value="'+esc(state.contentMonth)+'"></label>':'';
  const rows=activeRows(k);
  let body;
  if(view==='Kanban')body=board(k,rows);
@@ -69,7 +85,8 @@ function boardCard(k,x){
  const cover=x.cover?localImage(x.cover,'','board-cover'):'';
  if(k==='content')return '<div class="board-card content-card"'+open+data+'>'+cover+'<strong>'+esc(x.name)+'</strong></div>';
  const content=cover+
-  statusTag(x.kind&&x.formatDetail?x.kind+' · '+x.formatDetail:x.kind||x.stage)+'<strong>'+esc(x.name)+'</strong><p>'+esc(k==='crm'?x.client:x.note||x.client||'')+'</p>'+
+  statusTag(x.kind&&x.formatDetail?x.kind+' · '+x.formatDetail:x.kind||x.stage)+'<strong>'+esc(x.name)+'</strong>'+
+  (k==='social'&&!state.client?'<small>'+esc(x.client||'Sem cliente')+'</small>':'')+'<p>'+esc(k==='crm'?x.client:x.note||x.client||'')+'</p>'+
   '<div class="card-foot"><span>'+shortDate(editorialBoard(k)?publishedOn(x)||x.date:x.date)+'</span><span>'+esc(k==='crm'?brl(x.amount):k==='social'?'v'+(x.version||1):'')+'</span></div>';
  if(k!=='crm')return '<div class="board-card"'+open+data+'>'+content+'</div>';
  return '<article class="board-card crm-card"'+data+'><div class="board-card-open"'+open+'>'+content+'</div>'+
@@ -77,11 +94,13 @@ function boardCard(k,x){
 }
 function calendar(k,rows,month){
  const [year,m]=month.split('-').map(Number), offset=(new Date(year,m-1,1).getDay()+6)%7, days=new Date(year,m,0).getDate();
- return '<div class="board-wrap"><h2 class="section-title" style="margin-bottom:10px;text-transform:capitalize">'+esc(monthName(month))+'</h2><div class="cal-grid">'+['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map(x=>'<strong>'+x+'</strong>').join('')+Array.from({length:offset},()=>'<div></div>').join('')+Array.from({length:days},(_,i)=>{const date=month+'-'+String(i+1).padStart(2,'0');return '<div class="cal-cell'+(date===today?' today':'')+'">'+(i+1)+rows.filter(x=>(k==='content'||editorialBoard(k)?publishedOn(x)||x.date:x.date)===date).map(x=>button(x.name,'open|'+k+'|'+x.id,{cls:'event'})).join('')+'</div>'}).join('')+'</div></div>';
+ return '<div class="board-wrap"><h2 class="section-title" style="margin-bottom:10px;text-transform:capitalize">'+esc(monthName(month))+'</h2><div class="cal-grid">'+['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map(x=>'<strong>'+x+'</strong>').join('')+Array.from({length:offset},()=>'<div></div>').join('')+Array.from({length:days},(_,i)=>{const date=month+'-'+String(i+1).padStart(2,'0');return '<div class="cal-cell'+(date===today?' today':'')+'">'+(i+1)+rows.filter(x=>(k==='content'||editorialBoard(k)?publishedOn(x)||x.date:x.date)===date).map(x=>button(k==='social'&&!state.client&&x.client?x.name+' · '+x.client:x.name,'open|'+k+'|'+x.id,{cls:'event'})).join('')+'</div>'}).join('')+'</div></div>';
 }
 function delivery(rows){
  const ready=rows.filter(x=>['Aprovado','Entregue'].includes(x.stage)).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
- return panel(panelTitle('Peças prontas · '+state.client,ready.length?button('Baixar pacote','package',{ic:'download'}):'')+(ready.length?renderTable(['Publicação','Peça','Legenda','Status'],ready.map(x=>[shortDate(x.date),rowButton(x.name,'social',x.id),esc(x.caption||'—'),statusTag(x.stage)])):empty('Quando uma peça for aprovada, ela aparece aqui.','empty-panel')));
+ return panel(panelTitle('Peças prontas · '+(state.client||'Todos os clientes'),ready.length&&socialClientDelivery()?button('Baixar pacote','package',{ic:'download'}):'')+
+  (ready.length&&!socialClientDelivery()?'<p class="small">Selecione um cliente e um ciclo para baixar o pacote de entrega.</p>':'')+
+  (ready.length?renderTable(['Publicação','Peça','Cliente','Legenda','Status'],ready.map(x=>[shortDate(x.date),rowButton(x.name,'social',x.id),esc(x.client||'—'),esc(x.caption||'—'),statusTag(x.stage)])):empty('Quando uma peça for aprovada, ela aparece aqui.','empty-panel')));
 }
 const checklists={
  idv:['Briefing e materiais','Pesquisa de mercado e público','Relatório estratégico aprovado','Conceito, símbolo, paleta e tipografia','Apresentação e ajustes aprovados','Manual e arquivos finais'],
@@ -167,7 +186,7 @@ async function addOrEditCard(k,id,fd,form){
   syncProjectPayment(k,next);
  }
  if(previous)Object.assign(previous,next);else db[k].push(next);
- if(k==='social'){state.client=next.client;state.cycle=next.cycle||state.cycle}
+ if(k==='social'&&state.client){state.client=next.client;if(!state.allSocialCycles)state.cycle=next.cycle||state.cycle}
  finish('Registro salvo.');
  return previous||next;
 }
@@ -189,10 +208,11 @@ function createCycle(fd){
  const past=fd.get('structure')==='Cards numerados'?[]:db.social.filter(x=>x.client===client&&x.cycle===pastMonth&&x.kind!=='Planejamento');
  const selection={id:uid(),client,amount:0};linkProjectClient(selection,null,fd,'social');
  for(let i=0;i<count;i++)db.social.push({id:i===0?selection.id:uid(),name:past[i]?.name||'Peça '+String(i+1).padStart(2,'0'),cyclePiece:true,client,clientId:selection.clientId,folder:selection.folder,cycle,stage:'Pauta',kind:past[i]?.kind||'A definir',date:'',note:'Definir a pauta e o formato.',done:[]});
- state.client=client;state.cycle=cycle;finish('Ciclo criado com '+count+' peças.');
+ state.cycle=cycle;if(state.client)state.client=client;finish('Ciclo criado com '+count+' peças.');
 }
 function clientPreview(){
- const pieces=activeSocial().filter(x=>['Aprovação','Aprovado','Entregue','Ajustes'].includes(x.stage));
+ if(!state.client||!socialCycleOnly())return;
+ const pieces=db.social.filter(x=>x.client===state.client&&(x.cycle||x.date?.slice(0,7))===state.cycle&&['Aprovação','Aprovado','Entregue','Ajustes'].includes(x.stage));
  modal('Visão do cliente · '+state.client,'<p class="small">Prévia local do ciclo de '+esc(monthName(state.cycle))+'.</p><div class="search-list">'+(pieces.map(x=>'<button data-act="review|'+esc(x.id)+'">'+esc(x.name)+'<small>'+esc(x.stage)+' · v'+(x.version||1)+'</small></button>').join('')||empty('Ainda não há peças compartilhadas neste ciclo.'))+'</div>'+formEndNoSubmit());
 }
 const formEndNoSubmit=()=>'<div class="dialog-actions">'+button('Fechar','close',{cls:'btn ghost'})+'</div>';

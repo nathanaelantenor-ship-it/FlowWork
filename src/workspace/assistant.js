@@ -127,27 +127,32 @@ function monthFromChat(text){
  if(/mes passado|mes anterior/.test(norm))return addMonths(today,-1).slice(0,7);
  const month=['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'].findIndex(m=>new RegExp('\\b'+m+'\\b').test(norm));
  if(month!==-1)return (norm.match(/\b20\d{2}\b/)?.[0]||today.slice(0,4))+'-'+String(month+1).padStart(2,'0');
- return state.view==='finance'?state.period:today.slice(0,7);
+ return /\b(neste|este|atual) mes\b|\bmes atual\b/.test(norm)?today.slice(0,7):'';
 }
 function runFinancialReview(text){
  const words=simpleText(text);
  const ledger=words.includes('pessoal')?'pessoal':words.includes('empresa')?'empresa':state.ledger;
- const month=monthFromChat(text);
- const rows=db.finance.filter(x=>x.ledger===ledger&&(x.status==='Realizado'?(x.paidDate||x.date):x.date)?.startsWith(month));
+ const requestedMonth=monthFromChat(text);
+ const filter=!requestedMonth&&state.view==='finance'?state.financeFilter:{mode:'month',date:requestedMonth?requestedMonth+'-01':today};
+ const rows=financeRows(false,ledger,filter,'Todos');
  const paid=rows.filter(x=>x.status==='Realizado'), expected=rows.filter(x=>x.status==='Previsto');
  const [income,expense]=financeTotals(paid),[due,owed]=financeTotals(expected),balance=Math.round((income-expense)*100)/100,projected=balance+due-owed;
- const summary='Caixa '+(ledger==='pessoal'?'pessoal':'da empresa')+' em '+monthName(month)+'. ';
- if(!rows.length){chatReply(summary+'Ainda não há lançamentos neste recorte.',{label:'Abrir Financeiro',command:'assistant-finance|'+ledger+'|'+month});return}
+ const summary='Caixa '+(ledger==='pessoal'?'pessoal':'da empresa')+' · '+financePeriodLabel(filter)+'. ';
+ const command=['assistant-finance',ledger,filter.date,'',filter.mode,filter.from,filter.to].join('|');
+ if(!rows.length){chatReply(summary+'Ainda não há lançamentos neste recorte.',{label:'Abrir Financeiro',command});return}
  const top=groupFinance(paid,'out').slice(0,3);
- const previousMonth=addMonths(month+'-01',-1).slice(0,7);
- const before=db.finance.filter(x=>x.ledger===ledger&&x.status==='Realizado'&&(x.paidDate||x.date)?.startsWith(previousMonth));
- const past=financeTotals(before), change=Math.round((expense-past[1])*100)/100;
- const comparison=before.length&&change?'\nEm comparação com '+monthName(previousMonth)+', as despesas '+(change>0?'subiram ':'caíram ')+brl(Math.abs(change))+'.':'';
+ let comparison='';
+ if(filter.mode==='month'){
+  const date=addMonths(filter.date,-1);
+  const before=financeRows(false,ledger,{mode:'month',date},'Realizado');
+  const change=Math.round((expense-financeTotals(before)[1])*100)/100;
+  if(before.length&&change)comparison='\nEm comparação com '+monthName(date.slice(0,7))+', as despesas '+(change>0?'subiram ':'caíram ')+brl(Math.abs(change))+'.';
+ }
  const late=expected.filter(x=>x.date<today),[lateIncome,lateExpense]=financeTotals(late);
  const overdue=late.length?'\nPrevistos com data vencida: '+brl(lateIncome)+' a receber e '+brl(lateExpense)+' a pagar.':'';
 
  const tips=balance<0?'Há um déficit de '+brl(-balance)+'. Revise gastos que possam ser adiados ou reduzidos e confira datas das entradas previstas.':projected<0?'As previsões indicam um déficit de '+brl(-projected)+'. Confira vencimentos e se as receitas previstas ainda devem entrar.':'O saldo realizado do período está '+(balance>0?'positivo.':'zerado.')+' Confira as previsões antes de assumir novas despesas.';
- chatReply(summary+'Entradas realizadas: '+brl(income)+'. Saídas realizadas: '+brl(expense)+'. Saldo do período: '+brl(balance)+'.\nPrevistos: '+brl(due)+' a receber e '+brl(owed)+' a pagar. Projeção: '+brl(projected)+'.'+(top.length?'\nMaiores categorias de despesa: '+top.map(x=>x.category+' ('+brl(x.value)+')').join(', ')+'.':'')+comparison+overdue+'\n'+tips,{label:'Revisar no Financeiro',command:'assistant-finance|'+ledger+'|'+month});
+ chatReply(summary+'Entradas realizadas: '+brl(income)+'. Saídas realizadas: '+brl(expense)+'. Saldo do período: '+brl(balance)+'.\nPrevistos: '+brl(due)+' a receber e '+brl(owed)+' a pagar. Projeção: '+brl(projected)+'.'+(top.length?'\nMaiores categorias de despesa: '+top.map(x=>x.category+' ('+brl(x.value)+')').join(', ')+'.':'')+comparison+overdue+'\n'+tips,{label:'Revisar no Financeiro',command});
 }
 function chatMissing(d){
  const checks=d.kind==='project'?
@@ -160,8 +165,10 @@ function chatMissing(d){
 function makeChatForm(values){
  const fd=new FormData();for(const [k,v] of Object.entries(values))if(v!==undefined&&v!==null)fd.set(k,String(v));return fd;
 }
-function chatFinance(ledger,month,id=''){
- state.ledger=ledger;state.period=month;state.fstatus='Todos';go('finance');
+function chatFinance(ledger,date,id='',mode='month',from='',to=''){
+ state.ledger=ledger;
+ Object.assign(state.financeFilter,{mode,date:date.length===7?date+'-01':date},mode==='range'?{from,to}:{});
+ state.fstatus='Todos';go('finance');
  if(id){assistant.open=false;renderAssistant();moneyDialog(id)}
 }
 function chatOpenProject(k,id){
@@ -177,7 +184,7 @@ async function runChatCommand(d){
   if(!rows?.length){chatReply('Não foi possível salvar. Confira as datas, a categoria e o valor.');return}
   const x=rows[0];
   recordAssistantAction('finance',rows,x.name);
-  chatFinance(d.ledger,x.date.slice(0,7));
+  chatFinance(d.ledger,x.date);
   chatReply((d.flow==='in'?'Receita':'Despesa')+' prevista salva em '+(d.ledger==='pessoal'?'Pessoal':'Empresa')+': '+x.name+', '+brl(x.amount)+(d.frequency==='Recorrente'?' por ocorrência · '+(d.interval||'Mensal').toLowerCase()+' · '+rows.length+' ocorrências':'')+'. Primeira data: '+shortDate(x.date)+'/'+x.date.slice(0,4)+'. Categoria: '+categoryName(x.category)+'.',{label:'Revisar lançamento',command:'assistant-finance|'+d.ledger+'|'+x.date.slice(0,7)+'|'+x.id});
  }else{
   const c=get('clients',d.client), k=d.board;

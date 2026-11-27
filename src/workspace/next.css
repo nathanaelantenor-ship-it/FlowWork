@@ -60,6 +60,8 @@ html[data-flow-theme=light] .nav-sort-name .icon{color:#555e70}
 @media(max-width:680px){.fw-chat-panel{right:10px;bottom:66px;width:calc(100vw - 20px)}.fw-chat-fab{right:12px;bottom:12px;min-height:44px}.svc-row,.svc-choice{gap:8px;padding:9px}}
 
 .fw-follow,.fw-cash-forecast{margin:14px 0}
+.finance-filters{align-items:end}
+.finance-range-label{padding:0 4px 7px}
 .fw-follow-item{display:flex;gap:9px;align-items:center;padding:10px 0;border-bottom:1px solid #777f8845}
 .fw-follow-item:last-child{border-bottom:0}
 .fw-follow-item>div{flex:1;min-width:0}

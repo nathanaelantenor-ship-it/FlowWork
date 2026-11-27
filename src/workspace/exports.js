@@ -163,6 +163,7 @@ async function exportView(all,type){
  modalClose();toast('Exportação preparada.');
 }
 async function deliveryPackage(){
+ if(!socialClientDelivery())return;
  const ready=activeSocial().filter(x=>['Aprovado','Entregue'].includes(x.stage)).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
  const entries=[['legendas.txt',ready.map(x=>[shortDate(x.date),x.name,x.caption||'Sem legenda.'].join('\n')).join('\n\n')]];
  for(const x of ready){

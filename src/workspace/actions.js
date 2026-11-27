@@ -23,7 +23,7 @@ const actionHandlers={
  'assistant-undo':undoAssistantAction,
  'assistant-confirm':confirmAssistantSeries,
  'assistant-toggle':assistantToggle,
- 'assistant-example':id=>{assistant.open=true;assistantSend(id==='diagnostico'&&state.view==='finance'?'Faça um diagnóstico financeiro de '+state.period+' da '+(state.ledger==='empresa'?'empresa':'conta pessoal')+'.':chatExamples[id])},
+ 'assistant-example':id=>{assistant.open=true;assistantSend(id==='diagnostico'&&state.view==='finance'?'Faça um diagnóstico financeiro da '+(state.ledger==='empresa'?'empresa':'conta pessoal')+' no período selecionado.':chatExamples[id])},
  'assistant-sample':assistantSample,
  'assistant-finance':chatFinance,
  'assistant-project':chatOpenProject,
@@ -140,6 +140,14 @@ listen(document,'input',ev=>{
 });
 listen(document,'change',ev=>{
  const input=ev.target, prop=input.dataset.change;
+ if(prop==='client'||prop==='allSocialCycles'||prop==='socialPending'){
+  if(prop==='client')state.client=input.value;
+  else state[prop]=input.checked;
+  render();
+  main.querySelector('[data-change="'+prop+'"]')?.focus();
+  return;
+ }
+ if(input.dataset.financeFilter){changeFinanceFilter(input);return}
  if(input.name==='clientId'){const fields=input.closest('form')?.querySelector('.new-client-fields');if(fields){fields.classList.toggle('hide',input.value!=='new');fields.querySelector('[name=newClient]').required=input.value==='new'} }
  if(input.matches('input[type=file]')) showImageControls(input);
  if(prop&&(input.value||['insightFrom','insightTo','insightFormat'].includes(prop))){

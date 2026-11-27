@@ -6,7 +6,64 @@ function syncSalary(){
  const source=db.finance.filter(isSalary);
  db.finance.push(...source.map(x=>({...x,id:'salary-'+x.id,ledger:'pessoal',type:'in',category:'cat6',name:x.name,client:'',mirror:x.id})));
 }
-function financeRows(all=false,ledger=state.ledger){return db.finance.filter(x=>x.ledger===ledger&&(all||((!state.period||(x.status==='Realizado'?(x.paidDate||x.date):x.date)?.startsWith(state.period))&&(state.fstatus==='Todos'||x.status===state.fstatus)))).sort((a,b)=>(b.date||'').localeCompare(a.date||''))}
+const financePeriods=[['Dia','day'],['Mês','month'],['Ano','year'],...[15,30,45,60,90].map(n=>['Últimos '+n+' dias',String(n)]),['Intervalo personalizado','range'],['Todas as datas','all']];
+const financeDate=x=>(x.status==='Realizado'?x.paidDate||x.date:x.date)||'';
+const fullDate=d=>d?shortDate(d)+'/'+d.slice(0,4):'—';
+function financeBounds({mode,date,from,to}){
+ if(mode==='day')return [date,date];
+ if(mode==='year')return [date.slice(0,4)+'-01-01',date.slice(0,4)+'-12-31'];
+ if(mode==='range')return [from,to];
+ if(mode==='all')return ['',''];
+ if(mode!=='month')return [addDays(today,1-Number(mode)),today];
+ const month=date.slice(0,7),[year,number]=month.split('-').map(Number);
+ return [month+'-01',month+'-'+new Date(Date.UTC(year,number,0)).getUTCDate()];
+}
+function financeRows(all=false,ledger=state.ledger,filter=state.financeFilter,status=state.fstatus){
+ const [from,to]=all?['','']:financeBounds(filter);
+ return db.finance.filter(x=>x.ledger===ledger&&(all||((status==='Todos'||x.status===status)&&
+  (!from||financeDate(x)>=from)&&(!to||financeDate(x)<=to)))).sort((a,b)=>financeDate(b).localeCompare(financeDate(a)));
+}
+function financePeriodLabel(filter){
+ const [from,to]=financeBounds(filter);
+ if(filter.mode==='all')return 'Todas as datas';
+ if(filter.mode==='day')return fullDate(from);
+ if(filter.mode==='month')return monthName(from.slice(0,7));
+ if(filter.mode==='year')return from.slice(0,4);
+ return fullDate(from)+' a '+fullDate(to);
+}
+function financePeriodControls(){
+ const {mode,date,from,to}=state.financeFilter;
+ const input=(label,key,value,type,extra='')=>field(label,key,value,type,'data-finance-filter="'+key+'" '+extra);
+ let dates='';
+ if(mode==='day')dates=input('Dia','date',date,'date','min="1000-01-01" max="9999-12-31" required');
+ if(mode==='month')dates=input('Mês','date',date.slice(0,7),'month','min="1000-01" max="9999-12" required');
+ if(mode==='year')dates=input('Ano','date',date.slice(0,4),'number','min="1000" max="9999" step="1" required');
+ if(mode==='range')dates=input('De','from',from,'date','min="1000-01-01" max="9999-12-31" required')+
+  input('Até','to',to,'date','min="1000-01-01" max="9999-12-31" required');
+ return '<label class="input-wrap">Período<select class="field" data-finance-filter="mode">'+
+  financePeriods.map(([label,value])=>option(label,value,mode)).join('')+'</select></label>'+dates+
+  '<span class="small finance-range-label">'+esc(financePeriodLabel(state.financeFilter))+'</span>';
+}
+function changeFinanceFilter(input){
+ const key=input.dataset.financeFilter, value=input.value, filter=state.financeFilter;
+ if(key==='mode'){
+  if(!financePeriods.some(([,mode])=>mode===value))return;
+  filter.mode=value;
+ }else{
+  const pattern=key==='date'&&filter.mode==='year'?/^\d{4}$/:key==='date'&&filter.mode==='month'?/^\d{4}-(0[1-9]|1[0-2])$/:/^\d{4}-\d{2}-\d{2}$/;
+  if(!input.checkValidity()||!pattern.test(value)){
+   toast('Informe uma data válida.');render();main.querySelector('[data-finance-filter="'+key+'"]')?.focus();return;
+  }
+  if(key==='from'||key==='to'){
+   filter[key]=value;
+   if(filter.from>filter.to)filter[key==='from'?'to':'from']=value;
+  }else{
+   filter.date=filter.mode==='year'?value+'-01-01':filter.mode==='month'?value+'-01':value;
+  }
+ }
+ render();
+ main.querySelector('[data-finance-filter="'+key+'"]')?.focus();
+}
 function financeTotals(rows){const sum=type=>rows.filter(x=>x.type===type).reduce((a,b)=>a+b.amount,0);return [sum('in'),sum('out')]}
 function groupFinance(rows,type){
  const grouped={};rows.filter(x=>x.type===type).forEach(x=>grouped[x.category]=(grouped[x.category]||0)+x.amount);
@@ -21,10 +78,11 @@ function renderFinance(){
  const rows=financeRows(),[income,spend]=financeTotals(rows);
  const buttons=exportsBtn()+button('Diagnóstico','assistant-example|diagnostico',{ic:'chart'})+button('Categorias','categories',{ic:'palette'})+newBtn('Lançamento','new-money');
  return heading('Financeiro','Movimentações, parcelas e categorias.',buttons)+
- '<div class="filterbar">'+menu(['Empresa','Pessoal'],state.ledger==='empresa'?'Empresa':'Pessoal','ledger')+'<label>Período <input class="field" type="month" aria-label="Período financeiro" data-change="period" value="'+esc(state.period)+'"></label>'+menu(['Todos','Realizado','Previsto'],state.fstatus,'fstatus')+'</div>'+
+ '<div class="filterbar">'+menu(['Empresa','Pessoal'],state.ledger==='empresa'?'Empresa':'Pessoal','ledger')+menu(['Todos','Realizado','Previsto'],state.fstatus,'fstatus')+'</div>'+
+ '<div class="filterbar finance-filters">'+financePeriodControls()+'</div>'+
  '<div class="summary-grid">'+[['Receitas',income],['Despesas',spend],['Saldo do período',income-spend]].map(([label,value])=>panel('<span class="stat-label">'+label+'</span><strong class="stat-value mono">'+brl(value)+'</strong>')).join('')+'</div>'+
  cashForecastPanel()+'<div class="finance-grid">'+donutPanel('Receitas por categoria',groupFinance(rows,'in'))+donutPanel('Despesas por categoria',groupFinance(rows,'out'))+'</div>'+
- renderTable(['Lançamento','Categoria','Data prevista','Baixa','Status','Valor'],rows.map(x=>{const cat=get('categories',x.category);return [rowButton(x.name,'money',x.id)+(x.mirror?' <span class="tag yellow">Pró-labore</span>':x.client?' <small class="small">'+esc(x.client)+'</small>':''),'<span class="inline" style="color:'+cleanColor(cat?.color)+'">'+icon(cat?.icon)+' '+esc(categoryName(x.category))+'</span>',shortDate(x.date),shortDate(x.paidDate),statusTag(x.status),'<span class="finance-amount '+(x.type==='in'?'positive':'')+'">'+(x.type==='in'?'+':'−')+brl(x.amount)+'</span>']}));
+ renderTable(['Lançamento','Categoria','Data prevista','Baixa','Status','Valor'],rows.map(x=>{const cat=get('categories',x.category);return [rowButton(x.name,'money',x.id)+(x.mirror?' <span class="tag yellow">Pró-labore</span>':x.client?' <small class="small">'+esc(x.client)+'</small>':''),'<span class="inline" style="color:'+cleanColor(cat?.color)+'">'+icon(cat?.icon)+' '+esc(categoryName(x.category))+'</span>',fullDate(x.date),fullDate(x.paidDate),statusTag(x.status),'<span class="finance-amount '+(x.type==='in'?'positive':'')+'">'+(x.type==='in'?'+':'−')+brl(x.amount)+'</span>']}));
 }
 function moneyDialog(id=''){
  const x=get('finance',id)||{};
@@ -87,7 +145,15 @@ function moneyUpdate(id,ledger,fd){
   });
  }
  db.finance.push(...created);
- syncSalary();state.ledger=ledger;state.period=(fd.get('paidDate')&&status==='Realizado'?fd.get('paidDate'):fd.get('mode')==='Escolher cada data'?fd.getAll('customDate')[0]||date:date).slice(0,7);state.fstatus='Todos';finish('Lançamento salvo.');
+ syncSalary();
+ state.ledger=ledger;
+ const savedDate=financeDate(old||created[0]);
+ if(!financeRows().some(x=>x.id===(old||created[0]).id)){
+  state.fstatus='Todos';
+  const [from,to]=financeBounds(state.financeFilter);
+  if((from&&savedDate<from)||(to&&savedDate>to))Object.assign(state.financeFilter,{mode:'month',date:savedDate});
+ }
+ finish('Lançamento salvo.');
  return old?[old]:created;
 }
 function categoryList(){

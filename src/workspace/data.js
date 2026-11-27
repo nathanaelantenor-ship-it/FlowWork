@@ -51,7 +51,9 @@ const db=savedWorkspace?clone(savedWorkspace):{
  ...clone(starter),profile:{name:services.displayName,role:'Workspace pessoal'}
 };
 db.goals ||= []; db.preferences ||= {};
-const state={view:'home',boardView:{idv:'Kanban',social:'Kanban',content:'Kanban',study:'Trilhas',crm:'Kanban'},day:today,ledger:'empresa',period:today.slice(0,7),fstatus:'Todos',client:db.social[0]?.client||'',cycle:today.slice(0,7),map:'',mapZoom:1,folder:'',clientStatus:'Todos',insightFrom:'',insightTo:'',insightFormat:'',rankMetric:'leads',trendMetric:'views',contentMonth:today.slice(0,7),kindFilter:'Todas',crmFilter:'',mobile:false};
+const state={view:'home',boardView:{idv:'Kanban',social:'Kanban',content:'Kanban',study:'Trilhas',crm:'Kanban'},day:today,
+ ledger:'empresa',financeFilter:{mode:'month',date:today,from:today.slice(0,7)+'-01',to:today},fstatus:'Todos',
+ client:'',cycle:today.slice(0,7),allSocialCycles:true,socialPending:false,map:'',mapZoom:1,folder:'',clientStatus:'Todos',insightFrom:'',insightTo:'',insightFormat:'',rankMetric:'leads',trendMetric:'views',contentMonth:today.slice(0,7),kindFilter:'Todas',crmFilter:'',mobile:false};
 const get=(k,id)=>db[k]?.find(x=>x.id===id);
 const uid=()=>globalThis.crypto?.randomUUID?.() || 'fw-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
 const clean=v=>String(v??'').trim();

@@ -109,19 +109,42 @@ const checklists={
  study:['Sessão agendada','Aulas concluídas','Exercício aplicado'],
  crm:[]
 };
+function projectPaymentFields(k,x,booked){
+ const mode=booked?'paid':x.paymentMode||defaultProjectPayment(k,x);
+ const choices=mode==='pending'?[['A definir','pending'],...projectPaymentOptions]:projectPaymentOptions;
+ const paymentMode=booked?'<div class="input-wrap">Remuneração<strong>Remunerado</strong></div>':select('Remuneração','paymentMode',choices,mode);
+ const amount=x.amount||booked?.amount||'';
+ return paymentMode+
+  field('Valor do projeto (R$)','amount',amount,'number',(booked?'readonly ':'')+'min="0.01" step="0.01"')+
+  field('Data prevista de recebimento','paymentDue',x.paymentDue||booked?.date,'date',booked?'readonly':'')+
+  (x.id&&db.finance.some(f=>f.sourceProject===x.id&&f.status==='Previsto')?
+   '<p class="small wide" data-payment-removal hidden>Ao salvar, o recebimento previsto vinculado a este projeto será removido.</p>':'');
+}
+function updateProjectPaymentFields(form){
+ const mode=form.elements.paymentMode?.value||'paid',nonPaid=nonPaidProject(mode);
+ for(const name of ['amount','paymentDue']){
+  const input=form.elements[name];
+  input.disabled=nonPaid;
+  input.required=mode==='paid'&&!input.readOnly;
+  input.closest('label').hidden=nonPaid;
+ }
+ form.elements.clientId.options[0].textContent=nonPaid?'Sem cliente':'Selecione um cliente';
+ const notice=form.querySelector('[data-payment-removal]');
+ if(notice)notice.hidden=!nonPaid;
+}
 function cardDialog(k,id='',initial=''){
  const x=get(k,id)||{};
  const crm=k==='crm', social=k==='social', idv=k==='idv', content=k==='content';
  const stages=definitions[k].labels;
  const custom=serviceBoard(k), editableMetrics=content||insightBoard(k), editorial=editorialBoard(k), projectWork=idv||social||custom;
- const booked=db.finance.find(f=>f.sourceProject===x.id&&f.status==='Realizado');
+ const booked=projectWork&&projectReceipt(x.id);
  let fields=field(crm?'Nome do lead':social?'Título da peça':(idv||custom)&&!editorial?'Nome do projeto':'Título','name',x.name,'text','required');
  if(crm)fields+=field('Negócio','client',x.client,'text','required');
  if(projectWork)fields+=clientPicker(x,social?state.client:'',true);
  if(content||social||editorial)fields+=formatPicker(x.kind);
  if(k==='study')fields+=field('Ferramenta ou tema','kind',x.kind);
  fields+=select('Etapa','stage',stages,x.stage||initial||stages[0])+field(crm?'Data da próxima ação':content?'Data planejada':'Data de entrega','date',x.date??today,'date',projectWork?'required':'');
- if(projectWork)fields+=field(editorial?'Valor (R$, opcional)':'Valor do projeto (R$)','amount',x.amount,'number',(booked?'readonly ':editorial||x.id&&!x.paymentDue?'':'required ')+'min="0.01" step="0.01"')+field(editorial?'Recebimento (se houver cobrança)':'Data prevista de recebimento','paymentDue',x.paymentDue,'date',booked?'readonly':editorial||x.id&&!x.paymentDue?'':'required');
+ if(projectWork)fields+=projectPaymentFields(k,x,booked);
  if(booked)fields+='<div class="callout wide">Recebimento já confirmado. Abra o Financeiro para consultar ou corrigir a baixa.</div>';
  if(projectWork&&x.paymentRemoved)fields+='<div class="callout wide">Lançamento financeiro excluído. Altere o valor ou a data de recebimento para lançar novamente.</div>';
  if(crm)fields+=select('Canal','kind',['WhatsApp','Instagram','Threads','LinkedIn','E-mail','Outro'],x.kind)+select('Origem','origin',['Prospecção','Conteúdo','Indicação','Outro'],x.origin)+field('Valor da proposta (R$)','amount',x.amount,'number','min="0" step="0.01"')+field('Contato','contact',x.contact)+select('Serviço','service',workBoards().map(navName),x.service)+'<div class="checklist"><label><input type="checkbox" name="signed" '+(x.signed?'checked':'')+'> Contrato assinado</label><label><input type="checkbox" name="paid" '+(x.paid?'checked':'')+'> Entrada recebida</label></div>';
@@ -142,6 +165,7 @@ function cardDialog(k,id='',initial=''){
  const body=content||projectWork?contentEditor(x,fields,detail,editableMetrics,k):'<div class="form-grid">'+fields+'</div>'+detail;
  modal(x.name||'Adicionar '+definitions[k].noun,body+formEnd('Salvar',deleteButton(k,id)+
   (crm&&id?whatsappButton(x.contact,x.name):'')+controls),'card|'+k+'|'+id,true);
+ if(projectWork)updateProjectPaymentFields(overlay.querySelector('form'));
 }
 function createProject(lead){
  if(lead.stage!=='Fechado')return;
@@ -164,7 +188,27 @@ async function addOrEditCard(k,id,fd,form){
  for(const field of textFields)if(fd.has(field))next[field]=clean(fd.get(field));
  for(const field of ['amount','version'])if(fd.has(field))next[field]=Number(fd.get(field)||0);
  if(!next.name)return;
- if(k==='idv'||k==='social'||serviceBoard(k)){const choice=fd.get('clientId');if(choice==='new'&&!clean(fd.get('newClient'))||choice&&!['new','legacy'].includes(choice)&&!get('clients',choice)||!choice&&!next.client){contentTab('details');toast('Selecione um cliente ou informe o nome do novo cliente.');return} if((fd.get('amount')||next.paymentDue||previous?.paymentDue)&&(!next.paymentDue||!Number.isFinite(next.amount)||next.amount<=0)){contentTab('details');toast('Informe o valor e a data prevista de recebimento.');return}}
+ const projectWork=k==='idv'||k==='social'||serviceBoard(k);
+ if(projectWork){
+  const mode=fd.get('paymentMode')||previous?.paymentMode||defaultProjectPayment(k,previous||{});
+  const choice=fd.get('clientId'), booked=projectReceipt(id);
+  const nonPaid=nonPaidProject(mode);
+  if(choice==='new'&&!clean(fd.get('newClient'))||choice==='legacy'&&!next.client||
+   choice&&!['new','legacy'].includes(choice)&&!get('clients',choice)||!nonPaid&&!choice&&!next.client){
+   contentTab('details');toast('Selecione um cliente ou informe o nome do novo cliente.');return;
+  }
+  if(booked&&nonPaid){
+   contentTab('details');toast('Este projeto já tem um recebimento confirmado. Confira a baixa no Financeiro.');return;
+  }
+  if(nonPaid){
+   next.amount=0;next.paymentDue='';next.paymentRemoved=false;
+   if(!choice){next.client='';next.clientId=''}
+  }else if(!booked&&(mode==='paid'||fd.get('amount')||next.paymentDue||previous?.paymentDue)&&
+   (!next.paymentDue||!Number.isFinite(next.amount)||next.amount<=0)){
+   contentTab('details');toast('Informe o valor e a data prevista de recebimento.');return;
+  }
+  next.paymentMode=nonPaid?mode:booked||next.paymentDue?'paid':'pending';
+ }
  if((k==='content'||k==='social'||editorialBoard(k))&&!next.kind){
   contentTab('details');overlay.querySelector('.format-select')?.setAttribute('open','');toast('Selecione o formato da peça.');return;
  }
@@ -180,8 +224,8 @@ async function addOrEditCard(k,id,fd,form){
   if(next.stage==='Fechado'&&!next.closedOn)next.closedOn=today;
   createProject(next)
  }else next.done=fd.getAll('step').map(Number);
- if(k==='social'||k==='idv'||serviceBoard(k)){
-  linkProjectClient(next,previous,fd,k);
+ if(projectWork){
+  if(!nonPaidProject(next.paymentMode)||fd.get('clientId'))linkProjectClient(next,previous,fd,k);
   if(next.paymentRemoved&&(next.amount!==previous?.amount||next.paymentDue!==previous?.paymentDue))next.paymentRemoved=false;
   syncProjectPayment(k,next);
  }

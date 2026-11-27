@@ -148,6 +148,7 @@ listen(document,'change',ev=>{
   return;
  }
  if(input.dataset.financeFilter){changeFinanceFilter(input);return}
+ if(input.name==='paymentMode'){updateProjectPaymentFields(input.form);return}
  if(input.name==='clientId'){const fields=input.closest('form')?.querySelector('.new-client-fields');if(fields){fields.classList.toggle('hide',input.value!=='new');fields.querySelector('[name=newClient]').required=input.value==='new'} }
  if(input.matches('input[type=file]')) showImageControls(input);
  if(prop&&(input.value||['insightFrom','insightTo','insightFormat'].includes(prop))){

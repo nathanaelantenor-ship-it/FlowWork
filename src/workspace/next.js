@@ -1,4 +1,13 @@
 const legacyClient='legacy';
+const projectPaymentOptions=[
+ ['Remunerado','paid'],['Permuta','barter'],['Projeto pessoal','personal'],['Estudo','study']
+];
+const nonPaidProject=mode=>['barter','personal','study'].includes(mode);
+const projectPaymentLabel=mode=>projectPaymentOptions.find(([,value])=>value===mode)?.[0]||'A definir';
+function defaultProjectPayment(k,x){
+ return !x.paymentDue&&(editorialBoard(k)||x.id)?'pending':'paid';
+}
+const projectReceipt=id=>id&&db.finance.find(f=>f.sourceProject===id&&f.status==='Realizado');
 function clientPicker(item={},fallback='',required=false){
  const name=item.client||fallback;
  const chosen=get('clients',item.clientId)||findClient(name);
@@ -37,6 +46,10 @@ function linkProjectClient(next,previous,fd,k){
  next.clientId=c.id;next.client=c.name;next.clientDetached=false;next.folder ||= folder.id;
 }
 function syncProjectPayment(k,x){
+ if(nonPaidProject(x.paymentMode)){
+  db.finance=db.finance.filter(f=>f.sourceProject!==x.id||f.status==='Realizado');
+  return;
+ }
  if(x.paymentRemoved||!x.paymentDue||!Number.isFinite(x.amount)||x.amount<=0)return;
  const old=db.finance.find(f=>f.sourceProject===x.id);
  if(old?.status==='Realizado'){
@@ -47,7 +60,7 @@ function syncProjectPayment(k,x){
  if(old)Object.assign(old,row);
  else db.finance.push({...row,id:uid()});
 }
-const projectRecords=()=>workBoards().flatMap(k=>db[k].filter(x=>!x.cyclePiece&&(!editorialBoard(k)||x.paymentDue)).map(x=>[k,x]));
+const projectRecords=()=>workBoards().flatMap(k=>db[k].filter(x=>!x.cyclePiece&&(!editorialBoard(k)||x.paymentDue||nonPaidProject(x.paymentMode))).map(x=>[k,x]));
 const projectActive=(k,x)=>k==='idv'?x.stage!=='Entrega':k==='social'?x.stage!=='Entregue':x.stage!==definitions[k].labels.at(-1);
 const byDate=(a,b)=>(a.date||'9999').localeCompare(b.date||'9999');
 const activeProjectRecords=()=>projectRecords().filter(([k,x])=>projectActive(k,x)).sort(([,a],[,b])=>byDate(a,b));
@@ -138,7 +151,8 @@ function renderAgenda(){
 }
 function projectCard(k,x){
  const percent=progress(k,x);
- return '<button type="button" class="fw-project-row" data-act="project-pick|'+k+'|'+esc(x.id)+'" aria-pressed="'+(x.id===state.projectPick)+'"><span>'+avatar(get('clients',x.clientId)||{name:x.client})+'<span><b>'+esc(x.name)+'</b><small>'+esc(x.client||navName(k))+'</small></span></span><span class="fw-project-stage">'+esc(x.stage)+'<small>'+shortDate(x.date)+'</small></span><span class="meter"><i style="width:'+percent+'%"></i></span></button>';
+ const subtitle=[x.client||navName(k),nonPaidProject(x.paymentMode)?projectPaymentLabel(x.paymentMode):''].filter(Boolean).join(' · ');
+ return '<button type="button" class="fw-project-row" data-act="project-pick|'+k+'|'+esc(x.id)+'" aria-pressed="'+(x.id===state.projectPick)+'"><span>'+avatar(get('clients',x.clientId)||{name:x.client})+'<span><b>'+esc(x.name)+'</b><small>'+esc(subtitle)+'</small></span></span><span class="fw-project-stage">'+esc(x.stage)+'<small>'+shortDate(x.date)+'</small></span><span class="meter"><i style="width:'+percent+'%"></i></span></button>';
 }
 function chooseProject(){
  modal('Novo projeto','<div class="grid-menu">'+workBoards().map(k=>button(navName(k),'new|'+k,{ic:nav.find(x=>x[0]===k)[1]})).join('')+'</div>');
